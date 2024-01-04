@@ -1,2 +1,4 @@
-# Example
-An example greeter plugin
+# Combat Logger
+Logs combat events to a text file. Logs are stored in .runelite\combat_log
+
+![img.png](img.png)
