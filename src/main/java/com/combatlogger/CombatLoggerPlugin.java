@@ -167,7 +167,7 @@ public class CombatLoggerPlugin extends Plugin
 		try
 		{
 			LOG_FILE.createNewFile();
-			log("Log Version 0.0.1");
+			log("Log Version 0.0.2");
 			if (client.getLocalPlayer() != null && client.getLocalPlayer().getName() != null) {
 				log(String.format("Logged in player is %s", client.getLocalPlayer().getName()));
 			}
