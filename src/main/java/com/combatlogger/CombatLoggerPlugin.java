@@ -3,6 +3,8 @@ package com.combatlogger;
 import com.google.inject.Provides;
 import net.runelite.api.*;
 import net.runelite.api.events.ActorDeath;
+import net.runelite.api.events.GameStateChanged;
+import net.runelite.api.events.GameTick;
 import net.runelite.api.events.HitsplatApplied;
 import net.runelite.api.events.InteractingChanged;
 import net.runelite.client.RuneLite;
@@ -47,6 +49,8 @@ public class CombatLoggerPlugin extends Plugin
 		LOG_FILE = new File(DIRECTORY, LOG_FILE_NAME + "-" + System.currentTimeMillis() + ".txt");
 	}
 
+	private boolean checkPlayerName = false;
+
 	@Inject
 	private Client client;
 
@@ -85,6 +89,25 @@ public class CombatLoggerPlugin extends Plugin
 	}
 
 	@Subscribe
+	public void onGameStateChanged(GameStateChanged gameStateChanged)
+	{
+		if (gameStateChanged.getGameState() == GameState.LOGGING_IN)
+		{
+			checkPlayerName = true;
+		}
+	}
+
+	@Subscribe
+	public void onGameTick(GameTick event)
+	{
+		if (checkPlayerName && client.getLocalPlayer() != null && client.getLocalPlayer().getName() != null)
+		{
+			log(String.format("Logged in player is %s", client.getLocalPlayer().getName()));
+			checkPlayerName = false;
+		}
+	}
+
+	@Subscribe
 	public void onHitsplatApplied(HitsplatApplied hitsplatApplied)
 	{
 		Actor actor = hitsplatApplied.getActor();
@@ -119,7 +142,8 @@ public class CombatLoggerPlugin extends Plugin
 		try (BufferedWriter writer = new BufferedWriter(new FileWriter(LOG_FILE, true)))
 		{
 			writer.write(String.format("%s\t%s\n", getCurrentTimestamp(), message));
-			if (config.logInChat()){
+			if (config.logInChat())
+			{
 				chatMessageManager
 						.queue(QueuedMessage.builder()
 								.type(ChatMessageType.GAMEMESSAGE)
@@ -144,6 +168,9 @@ public class CombatLoggerPlugin extends Plugin
 		{
 			LOG_FILE.createNewFile();
 			log("Log Version 0.0.1");
+			if (client.getLocalPlayer() != null && client.getLocalPlayer().getName() != null) {
+				log(String.format("Logged in player is %s", client.getLocalPlayer().getName()));
+			}
 		}
 		catch (IOException e)
 		{
