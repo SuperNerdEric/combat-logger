@@ -1,13 +1,11 @@
 package com.combatlogger;
 
 import com.google.inject.Provides;
+import lombok.Getter;
 import net.runelite.api.*;
-import net.runelite.api.events.ActorDeath;
-import net.runelite.api.events.GameStateChanged;
-import net.runelite.api.events.GameTick;
-import net.runelite.api.events.HitsplatApplied;
-import net.runelite.api.events.InteractingChanged;
+import net.runelite.api.events.*;
 import net.runelite.client.RuneLite;
+import net.runelite.client.callback.ClientThread;
 import net.runelite.client.chat.ChatMessageManager;
 import net.runelite.client.chat.QueuedMessage;
 import net.runelite.client.config.ConfigManager;
@@ -22,6 +20,8 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.Locale;
 
@@ -50,9 +50,16 @@ public class CombatLoggerPlugin extends Plugin
 	}
 
 	private boolean checkPlayerName = false;
+	private int[] playerEquipment = {};
+	private BoostedCombatStats boostedCombatStats;
+	private boolean statChangeLogScheduled;
 
 	@Inject
 	private Client client;
+
+	@Getter
+	@Inject
+	private ClientThread clientThread;
 
 	@Inject
 	private ChatMessageManager chatMessageManager;
@@ -80,7 +87,15 @@ public class CombatLoggerPlugin extends Plugin
 	@Override
 	protected void startUp()
 	{
+		sendReminderMessage();
 		createLogFile();
+		boostedCombatStats = new BoostedCombatStats(client);
+		if (client.getLocalPlayer() != null)
+		{
+			log(String.format("Boosted levels are %s", boostedCombatStats));
+			playerEquipment = client.getLocalPlayer().getPlayerComposition().getEquipmentIds();
+			log(String.format("Player equipment is %s", formatEquipment(playerEquipment)));
+		}
 	}
 
 	@Override
@@ -103,7 +118,43 @@ public class CombatLoggerPlugin extends Plugin
 		if (checkPlayerName && client.getLocalPlayer() != null && client.getLocalPlayer().getName() != null)
 		{
 			log(String.format("Logged in player is %s", client.getLocalPlayer().getName()));
+			clientThread.invokeLater(this::sendReminderMessage); // Delay so it's at bottom of chat
 			checkPlayerName = false;
+		}
+	}
+
+	@Subscribe
+	public void onStatChanged(StatChanged statChanged)
+	{
+		if (boostedCombatStats.statsChanged(client))
+		{
+			boostedCombatStats.setStats(client);
+
+			// Many StatChanged events are fired on login and some boosts effect multiple stats (like brews)
+			// So we group them together to just get a single log message
+			if (!statChangeLogScheduled)
+			{
+				statChangeLogScheduled = true;
+				clientThread.invokeLater(() ->
+				{
+					log(String.format("Boosted levels are %s", boostedCombatStats));
+					statChangeLogScheduled = false;
+				});
+			}
+		}
+	}
+
+	@Subscribe
+	public void onPlayerChanged(PlayerChanged playerChanged)
+	{
+		if (client.getLocalPlayer().getId() == playerChanged.getPlayer().getId())
+		{
+			int[] equipmentIds = client.getLocalPlayer().getPlayerComposition().getEquipmentIds();
+			if (equipmentIds != null && !Arrays.equals(equipmentIds, playerEquipment))
+			{
+				playerEquipment = equipmentIds;
+				log(String.format("Player equipment is %s", formatEquipment(playerEquipment)));
+			}
 		}
 	}
 
@@ -167,8 +218,9 @@ public class CombatLoggerPlugin extends Plugin
 		try
 		{
 			LOG_FILE.createNewFile();
-			log("Log Version 0.0.2");
-			if (client.getLocalPlayer() != null && client.getLocalPlayer().getName() != null) {
+			log("Log Version 0.0.3");
+			if (client.getLocalPlayer() != null && client.getLocalPlayer().getName() != null)
+			{
 				log(String.format("Logged in player is %s", client.getLocalPlayer().getName()));
 			}
 		}
@@ -176,6 +228,15 @@ public class CombatLoggerPlugin extends Plugin
 		{
 			e.printStackTrace();
 		}
+	}
+
+	private void sendReminderMessage()
+	{
+		chatMessageManager
+				.queue(QueuedMessage.builder()
+						.type(ChatMessageType.GAMEMESSAGE)
+						.runeLiteFormattedMessage("<col=cc0000>Combat Logger plugin is logging to .runelite\\combat_log</col>")
+						.build());
 	}
 
 	private void clearLogs()
@@ -187,5 +248,20 @@ public class CombatLoggerPlugin extends Plugin
 
 		LOG_FILE = new File(DIRECTORY, LOG_FILE_NAME + "-" + System.currentTimeMillis() + ".txt");
 		createLogFile();
+	}
+
+
+	private String formatEquipment(int[] equipmentIds)
+	{
+		ArrayList<Integer> realEquipmentIds = new ArrayList<>();
+		for (int equipmentId : equipmentIds)
+		{
+			// Equipment ids are offset by 512, so we have to subtract 512 to get the real equipment id
+			if (equipmentId > 512)
+			{
+				realEquipmentIds.add(equipmentId - 512);
+			}
+		}
+		return realEquipmentIds.toString();
 	}
 }
