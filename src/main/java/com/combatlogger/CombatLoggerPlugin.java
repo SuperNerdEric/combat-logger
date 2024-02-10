@@ -53,6 +53,7 @@ public class CombatLoggerPlugin extends Plugin
 	private int[] playerEquipment = {};
 	private BoostedCombatStats boostedCombatStats;
 	private boolean statChangeLogScheduled;
+	private int hitpointsXpLastUpdated = -1;
 
 	@Inject
 	private Client client;
@@ -141,6 +142,59 @@ public class CombatLoggerPlugin extends Plugin
 					statChangeLogScheduled = false;
 				});
 			}
+		}
+		if (statChanged.getSkill() == Skill.HITPOINTS)
+		{
+			hitpointsXpLastUpdated = client.getTickCount();
+		}
+	}
+
+	@Subscribe
+	public void onAnimationChanged(AnimationChanged event)
+	{
+		Player local = client.getLocalPlayer();
+
+		if (event.getActor() != local || !local.isInteracting())
+		{
+			return;
+		}
+
+		if (SpellAnimationIds.IDS.contains(event.getActor().getAnimation()))
+		{
+			clientThread.invokeLater(() -> checkSplash(local));
+		}
+	}
+
+	private void checkSplash(Player local)
+	{
+		int currentTick = client.getTickCount();
+		Actor target = local.getInteracting();
+		if (currentTick - hitpointsXpLastUpdated > 1 && !target.getName().toLowerCase().contains("dummy"))
+		{
+			// We used a spell attack animation, but it's been more than 1 tick since we gained hitpoints xp
+			// Assuming that is either a 0 or a miss (splash)
+
+			if (target.hasSpotAnim(GraphicID.SPLASH))
+			{
+				// I think technically you may have hit a 0 at the same time someone else splashed, but unlikely
+				log(String.format("%s\t%s\t%d", target.getName(), "SPLASH_ME", 0));
+			}
+		}
+	}
+
+	@Subscribe
+	public void onGraphicChanged(GraphicChanged event)
+	{
+		Player local = client.getLocalPlayer();
+
+		if (event.getActor() != local)
+		{
+			return;
+		}
+
+		if (local.hasSpotAnim(GraphicID.SPLASH))
+		{
+			log(String.format("%s\t%s\t%d", local.getName(), "SPLASH_ME", 0));
 		}
 	}
 

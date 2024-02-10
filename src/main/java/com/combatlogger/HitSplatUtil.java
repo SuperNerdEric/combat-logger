@@ -37,6 +37,6 @@ public class HitSplatUtil
 
     public static String getHitsplatName(int hitsplatType)
     {
-        return hitsplatNames.getOrDefault(hitsplatType, "Unknown");
+        return hitsplatNames.getOrDefault(hitsplatType, "Unknown_" + hitsplatType);
     }
 }
