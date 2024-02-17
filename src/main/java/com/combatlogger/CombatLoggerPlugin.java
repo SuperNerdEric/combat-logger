@@ -20,10 +20,8 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.Locale;
+import java.util.*;
+import java.util.stream.Collectors;
 
 import static com.combatlogger.HitSplatUtil.getHitsplatName;
 
@@ -50,7 +48,6 @@ public class CombatLoggerPlugin extends Plugin
 	}
 
 	private boolean checkPlayerName = false;
-	private int[] playerEquipment = {};
 	private BoostedCombatStats boostedCombatStats;
 	private boolean statChangeLogScheduled;
 	private int hitpointsXpLastUpdated = -1;
@@ -94,8 +91,6 @@ public class CombatLoggerPlugin extends Plugin
 		if (client.getLocalPlayer() != null)
 		{
 			log(String.format("Boosted levels are %s", boostedCombatStats));
-			playerEquipment = client.getLocalPlayer().getPlayerComposition().getEquipmentIds();
-			log(String.format("Player equipment is %s", formatEquipment(playerEquipment)));
 		}
 	}
 
@@ -199,16 +194,18 @@ public class CombatLoggerPlugin extends Plugin
 	}
 
 	@Subscribe
-	public void onPlayerChanged(PlayerChanged playerChanged)
+	public void onItemContainerChanged(ItemContainerChanged itemContainerChanged)
 	{
-		if (client.getLocalPlayer().getId() == playerChanged.getPlayer().getId())
+		if (itemContainerChanged.getContainerId() == InventoryID.EQUIPMENT.getId())
 		{
-			int[] equipmentIds = client.getLocalPlayer().getPlayerComposition().getEquipmentIds();
-			if (equipmentIds != null && !Arrays.equals(equipmentIds, playerEquipment))
-			{
-				playerEquipment = equipmentIds;
-				log(String.format("Player equipment is %s", formatEquipment(playerEquipment)));
-			}
+			ItemContainer equipContainer = client.getItemContainer(InventoryID.EQUIPMENT);
+
+			List<Integer> itemIds = Arrays.stream(equipContainer.getItems())
+					.map(Item::getId)
+					.filter(itemId -> itemId > 0)
+					.collect(Collectors.toList());
+
+			log(String.format("Player equipment is %s", itemIds));
 		}
 	}
 
@@ -228,7 +225,7 @@ public class CombatLoggerPlugin extends Plugin
 	public void onInteractingChanged(InteractingChanged event)
 	{
 		String source = event.getSource().getName();
-		if(event.getTarget() != null &&
+		if (event.getTarget() != null &&
 				(event.getTarget() instanceof Player || event.getTarget() instanceof NPC))
 		{
 			String target = event.getTarget().getName();
@@ -302,20 +299,5 @@ public class CombatLoggerPlugin extends Plugin
 
 		LOG_FILE = new File(DIRECTORY, LOG_FILE_NAME + "-" + System.currentTimeMillis() + ".txt");
 		createLogFile();
-	}
-
-
-	private String formatEquipment(int[] equipmentIds)
-	{
-		ArrayList<Integer> realEquipmentIds = new ArrayList<>();
-		for (int equipmentId : equipmentIds)
-		{
-			// Equipment ids are offset by 512, so we have to subtract 512 to get the real equipment id
-			if (equipmentId > 512)
-			{
-				realEquipmentIds.add(equipmentId - 512);
-			}
-		}
-		return realEquipmentIds.toString();
 	}
 }
