@@ -42,9 +42,6 @@ public class CombatLoggerPlugin extends Plugin
 	static
 	{
 		DIRECTORY = new File(RuneLite.RUNELITE_DIR, DIRECTORY_NAME);
-		DIRECTORY.mkdirs();
-
-		LOG_FILE = new File(DIRECTORY, LOG_FILE_NAME + "-" + System.currentTimeMillis() + ".txt");
 	}
 
 	private boolean checkPlayerName = false;
@@ -85,18 +82,32 @@ public class CombatLoggerPlugin extends Plugin
 	@Override
 	protected void startUp()
 	{
+		DIRECTORY.mkdirs();
 		sendReminderMessage();
-		createLogFile();
 		boostedCombatStats = new BoostedCombatStats(client);
-		if (client.getLocalPlayer() != null)
-		{
-			log(String.format("Boosted levels are %s", boostedCombatStats));
-		}
+		createLogFile();
 	}
 
 	@Override
 	protected void shutDown()
 	{
+	}
+
+	@Subscribe
+	public void onCommandExecuted(CommandExecuted commandExecuted)
+	{
+		if (!commandExecuted.getCommand().equals("newlog"))
+		{
+			return;
+		}
+
+		createLogFile();
+		chatMessageManager
+				.queue(QueuedMessage.builder()
+						.type(ChatMessageType.GAMEMESSAGE)
+						.runeLiteFormattedMessage(String.format("<col=cc0000>New combat log created: %s</col>", LOG_FILE.getName()))
+						.build());
+		logEquipment(); // Normally ItemContainerChanged is fired on startup, so it's not necessary in createLogFile()
 	}
 
 	@Subscribe
@@ -198,15 +209,20 @@ public class CombatLoggerPlugin extends Plugin
 	{
 		if (itemContainerChanged.getContainerId() == InventoryID.EQUIPMENT.getId())
 		{
-			ItemContainer equipContainer = client.getItemContainer(InventoryID.EQUIPMENT);
-
-			List<Integer> itemIds = Arrays.stream(equipContainer.getItems())
-					.map(Item::getId)
-					.filter(itemId -> itemId > 0)
-					.collect(Collectors.toList());
-
-			log(String.format("Player equipment is %s", itemIds));
+			logEquipment();
 		}
+	}
+
+	private void logEquipment()
+	{
+		ItemContainer equipContainer = client.getItemContainer(InventoryID.EQUIPMENT);
+
+		List<Integer> itemIds = Arrays.stream(equipContainer.getItems())
+				.map(Item::getId)
+				.filter(itemId -> itemId > 0)
+				.collect(Collectors.toList());
+
+		log(String.format("Player equipment is %s", itemIds));
 	}
 
 	@Subscribe
@@ -268,11 +284,13 @@ public class CombatLoggerPlugin extends Plugin
 	{
 		try
 		{
+			LOG_FILE = new File(DIRECTORY, LOG_FILE_NAME + "-" + System.currentTimeMillis() + ".txt");
 			LOG_FILE.createNewFile();
-			log("Log Version 0.0.3");
+			log("Log Version 0.0.4");
 			if (client.getLocalPlayer() != null && client.getLocalPlayer().getName() != null)
 			{
 				log(String.format("Logged in player is %s", client.getLocalPlayer().getName()));
+				log(String.format("Boosted levels are %s", boostedCombatStats));
 			}
 		}
 		catch (IOException e)
