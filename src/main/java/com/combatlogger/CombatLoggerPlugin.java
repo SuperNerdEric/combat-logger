@@ -27,7 +27,7 @@ import static com.combatlogger.HitSplatUtil.getHitsplatName;
 
 @PluginDescriptor(
 		name = "Combat Logger",
-		description = "Logs combat events to a text file",
+		description = "Logs combat events to a text file - Upload and analyze your logs at runelogs.com.",
 		tags = {"damage", "dps", "pvm"}
 )
 public class CombatLoggerPlugin extends Plugin
@@ -286,7 +286,7 @@ public class CombatLoggerPlugin extends Plugin
 		{
 			LOG_FILE = new File(DIRECTORY, LOG_FILE_NAME + "-" + System.currentTimeMillis() + ".txt");
 			LOG_FILE.createNewFile();
-			log("Log Version 0.0.4");
+			log("Log Version 0.0.5");
 			if (client.getLocalPlayer() != null && client.getLocalPlayer().getName() != null)
 			{
 				log(String.format("Logged in player is %s", client.getLocalPlayer().getName()));
