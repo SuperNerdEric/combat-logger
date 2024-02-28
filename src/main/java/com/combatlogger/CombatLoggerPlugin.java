@@ -92,6 +92,7 @@ public class CombatLoggerPlugin extends Plugin
 	@Override
 	protected void shutDown()
 	{
+		previousItemIds = null;
 	}
 
 	@Subscribe
