@@ -48,6 +48,7 @@ public class CombatLoggerPlugin extends Plugin
 	private BoostedCombatStats boostedCombatStats;
 	private boolean statChangeLogScheduled;
 	private int hitpointsXpLastUpdated = -1;
+	private List<Integer> previousItemIds;
 
 	@Inject
 	private Client client;
@@ -107,7 +108,7 @@ public class CombatLoggerPlugin extends Plugin
 						.type(ChatMessageType.GAMEMESSAGE)
 						.runeLiteFormattedMessage(String.format("<col=cc0000>New combat log created: %s</col>", LOG_FILE.getName()))
 						.build());
-		logEquipment(); // Normally ItemContainerChanged is fired on startup, so it's not necessary in createLogFile()
+		logEquipment(true); // Normally ItemContainerChanged is fired on startup, so it's not necessary in createLogFile()
 	}
 
 	@Subscribe
@@ -209,20 +210,24 @@ public class CombatLoggerPlugin extends Plugin
 	{
 		if (itemContainerChanged.getContainerId() == InventoryID.EQUIPMENT.getId())
 		{
-			logEquipment();
+			logEquipment(false);
 		}
 	}
 
-	private void logEquipment()
+	private void logEquipment(boolean forceLogging)
 	{
 		ItemContainer equipContainer = client.getItemContainer(InventoryID.EQUIPMENT);
 
-		List<Integer> itemIds = Arrays.stream(equipContainer.getItems())
+		List<Integer> currentItemIds = Arrays.stream(equipContainer.getItems())
 				.map(Item::getId)
 				.filter(itemId -> itemId > 0)
 				.collect(Collectors.toList());
 
-		log(String.format("Player equipment is %s", itemIds));
+		if (forceLogging || !Objects.equals(currentItemIds, previousItemIds))
+		{
+			previousItemIds = currentItemIds;
+			log(String.format("Player equipment is %s", currentItemIds));
+		}
 	}
 
 	@Subscribe
@@ -286,7 +291,7 @@ public class CombatLoggerPlugin extends Plugin
 		{
 			LOG_FILE = new File(DIRECTORY, LOG_FILE_NAME + "-" + System.currentTimeMillis() + ".txt");
 			LOG_FILE.createNewFile();
-			log("Log Version 0.0.5");
+			log("Log Version 0.0.6");
 			if (client.getLocalPlayer() != null && client.getLocalPlayer().getName() != null)
 			{
 				log(String.format("Logged in player is %s", client.getLocalPlayer().getName()));
