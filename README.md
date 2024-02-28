@@ -11,7 +11,7 @@ Logs are stored in `.runelite\combat_log`
       Example: `02-23-2024 23:06:10.999 CST`
 
 2. **Hitsplats:**
-    - Hitsplats are applied in this format: `TARGET	HITSPLAT_NAME AMOUNT`  
+    - Hitsplats are applied in this format: `TARGET HITSPLAT_NAME AMOUNT`  
     - Note: The source of the hitsplat is not available, however hitsplat names that include ME (e.g. DAMAGE_MAX_ME) were either dealt by you or to you.  
       Example: `The Leviathan DAMAGE_MAX_ME 69` - I did a max hit of 69 to The Leviathan  
       Example: `Cow31337Killer DAMAGE_ME 25` - The logged in player (Cow31337Killer) took 25 damage  
