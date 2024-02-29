@@ -5,7 +5,7 @@ import java.util.List;
 
 public class AnimationIds
 {
-    public static final List<Integer> MELEE_IDS = Arrays.asList(
+	public static final List<Integer> MELEE_IDS = Arrays.asList(
 			390, // Slash, swift blade, Osmumten's fang
 			9471, // Osmumten's fang stab
 			6118, // Osmumten's fang spec
@@ -86,7 +86,7 @@ public class AnimationIds
 			12033, // Dragon longsword spec
 			12031, // Dragon scimitar spec
 			405 // Dragon spear spec
-    );
+	);
 
 	public static final List<Integer> RANGED_IDS = Arrays.asList(
 			426, // Bow
@@ -103,22 +103,22 @@ public class AnimationIds
 			7555 // Ballista
 	);
 
-    public static final List<Integer> MAGE_IDS = Arrays.asList(
-            711, // Strike, Bolt, and Blast without staff
-            1162, // Strike, Bolt, and Blast with staff
-            727, // Wave without staff
-            1167, // Wave with staff, Sanguinesti staff, Tridents
-            724, // Crumble undead without staff
-            1166, // Crumble undead with staff
-            1576, // Magic dart
-            7855, // Surge
-            811, // Flames of Zamorak, Saradomin Strike, Claws of Guthix
-            393, // Bone staff
-            708, // Iban blast
-            8532, // Eldritch/Volatile nightmare staff spec
-            1978, // Rush and Blitz
-            1979, // Burst and Barrage
-            9493, // Tumeken's shadow
+	public static final List<Integer> MAGE_IDS = Arrays.asList(
+			711, // Strike, Bolt, and Blast without staff
+			1162, // Strike, Bolt, and Blast with staff
+			727, // Wave without staff
+			1167, // Wave with staff, Sanguinesti staff, Tridents
+			724, // Crumble undead without staff
+			1166, // Crumble undead with staff
+			1576, // Magic dart
+			7855, // Surge
+			811, // Flames of Zamorak, Saradomin Strike, Claws of Guthix
+			393, // Bone staff
+			708, // Iban blast
+			8532, // Eldritch/Volatile nightmare staff spec
+			1978, // Rush and Blitz
+			1979, // Burst and Barrage
+			9493, // Tumeken's shadow
 			10501 // Warped sceptre
-    );
+	);
 }
