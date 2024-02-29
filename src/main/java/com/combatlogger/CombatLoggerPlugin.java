@@ -49,6 +49,7 @@ public class CombatLoggerPlugin extends Plugin
 	private boolean statChangeLogScheduled;
 	private int hitpointsXpLastUpdated = -1;
 	private List<Integer> previousItemIds;
+	private boolean isBlowpiping = false;
 
 	@Inject
 	private Client client;
@@ -93,6 +94,7 @@ public class CombatLoggerPlugin extends Plugin
 	protected void shutDown()
 	{
 		previousItemIds = null;
+		isBlowpiping = false;
 	}
 
 	@Subscribe
@@ -169,9 +171,19 @@ public class CombatLoggerPlugin extends Plugin
 
 		int animationId = event.getActor().getAnimation();
 
+		if (isBlowpiping && (animationId != 5061 || animationId != 10656))
+		{
+			isBlowpiping = false;
+			log(String.format("Player stopped blowpiping"));
+		}
 		if (AnimationIds.MELEE_IDS.contains(animationId) ||
 				AnimationIds.RANGED_IDS.contains(animationId) ||
-				AnimationIds.MAGE_IDS.contains(animationId)) {
+				AnimationIds.MAGE_IDS.contains(animationId))
+		{
+			if (animationId == 5061 || animationId == 10656)
+			{
+				isBlowpiping = true;
+			}
 			log(String.format("Player attack animation\t%d\t%s", animationId, local.getInteracting().getName()));
 		}
 
