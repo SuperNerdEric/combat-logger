@@ -167,7 +167,16 @@ public class CombatLoggerPlugin extends Plugin
 			return;
 		}
 
-		if (SpellAnimationIds.IDS.contains(event.getActor().getAnimation()))
+		int animationId = event.getActor().getAnimation();
+
+		if (AnimationIds.MELEE_IDS.contains(animationId) ||
+				AnimationIds.RANGED_IDS.contains(animationId) ||
+				AnimationIds.MAGE_IDS.contains(animationId)) {
+			log(String.format("Player attack animation\t%d\t%s", animationId, local.getInteracting().getName()));
+		}
+
+
+		if (AnimationIds.MAGE_IDS.contains(animationId))
 		{
 			clientThread.invokeLater(() -> checkSplash(local));
 		}
