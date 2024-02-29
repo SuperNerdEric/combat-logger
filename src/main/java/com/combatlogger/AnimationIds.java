@@ -94,6 +94,7 @@ public class AnimationIds
 			7617, // Rune knife, thrownaxe
 			8194, // Dragon knife
 			5061, // Blowpipe
+			10656, // Blazing Blowpipe
 			7554, // Dart throw
 			7618, // Chinchompa
 			2075, // Karil's crossbow
