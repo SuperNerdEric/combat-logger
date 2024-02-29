@@ -132,6 +132,16 @@ public class CombatLoggerPlugin extends Plugin
 			clientThread.invokeLater(this::sendReminderMessage); // Delay so it's at bottom of chat
 			checkPlayerName = false;
 		}
+
+		if (isBlowpiping && client.getLocalPlayer() != null)
+		{
+			int animationId = client.getLocalPlayer().getAnimation();
+			if (animationId != 5061 || animationId != 10656)
+			{
+				isBlowpiping = false;
+				log(String.format("Player stopped blowpiping"));
+			}
+		}
 	}
 
 	@Subscribe
@@ -171,11 +181,6 @@ public class CombatLoggerPlugin extends Plugin
 
 		int animationId = event.getActor().getAnimation();
 
-		if (isBlowpiping && (animationId != 5061 || animationId != 10656))
-		{
-			isBlowpiping = false;
-			log(String.format("Player stopped blowpiping"));
-		}
 		if (AnimationIds.MELEE_IDS.contains(animationId) ||
 				AnimationIds.RANGED_IDS.contains(animationId) ||
 				AnimationIds.MAGE_IDS.contains(animationId))
