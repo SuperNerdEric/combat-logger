@@ -136,7 +136,7 @@ public class CombatLoggerPlugin extends Plugin
 		if (isBlowpiping && client.getLocalPlayer() != null)
 		{
 			int animationId = client.getLocalPlayer().getAnimation();
-			if (animationId != 5061 || animationId != 10656)
+			if (animationId != 5061 && animationId != 10656)
 			{
 				isBlowpiping = false;
 				log(String.format("Player stopped blowpiping"));
