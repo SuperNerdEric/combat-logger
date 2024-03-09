@@ -93,6 +93,8 @@ public class AnimationIds
 			1074, // Magic shortbow spec
 			7617, // Rune knife, thrownaxe
 			8194, // Dragon knife
+			8195, // Dragon knife poisoned
+			8291, // Dragon knife spec
 			5061, // Blowpipe
 			10656, // Blazing Blowpipe
 			7554, // Dart throw
@@ -101,10 +103,14 @@ public class AnimationIds
 			9964, // Webweaver bow spec
 			7552, // Crossbow
 			9168, // Zaryte crossbow
-			7555 // Ballista
+			9206, // Rune crossbow (or)
+			7555, // Ballista
+			9858 // Venator bow
 	);
 
 	public static final List<Integer> MAGE_IDS = Arrays.asList(
+			710, // Bind, snare, entangle without staff
+			1161, // Bind, snare, entangle with staff
 			711, // Strike, Bolt, and Blast without staff
 			1162, // Strike, Bolt, and Blast with staff
 			727, // Wave without staff
@@ -120,6 +126,8 @@ public class AnimationIds
 			1978, // Rush and Blitz
 			1979, // Burst and Barrage
 			9493, // Tumeken's shadow
-			10501 // Warped sceptre
+			10501, // Warped sceptre
+			8972, // Arceuus grasp
+			8977 // Arceuus demonbane
 	);
 }
