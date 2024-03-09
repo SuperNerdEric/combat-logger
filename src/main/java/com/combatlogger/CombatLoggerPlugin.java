@@ -3,6 +3,8 @@ package com.combatlogger;
 import com.google.inject.Provides;
 import lombok.Getter;
 import net.runelite.api.*;
+import net.runelite.api.coords.LocalPoint;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.*;
 import net.runelite.client.RuneLite;
 import net.runelite.client.callback.ClientThread;
@@ -37,7 +39,7 @@ public class CombatLoggerPlugin extends Plugin
 	private static final String LOG_FILE_NAME = "combat_log";
 	public static File LOG_FILE;
 
-	private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("MM-dd-yyyy HH:mm:ss.SSS z", Locale.ENGLISH);
+	private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("MM-dd-yyyy HH:mm:ss", Locale.ENGLISH);
 
 	static
 	{
@@ -50,6 +52,7 @@ public class CombatLoggerPlugin extends Plugin
 	private int hitpointsXpLastUpdated = -1;
 	private List<Integer> previousItemIds;
 	private boolean isBlowpiping = false;
+	private int regionId = -1;
 
 	@Inject
 	private Client client;
@@ -95,6 +98,7 @@ public class CombatLoggerPlugin extends Plugin
 	{
 		previousItemIds = null;
 		isBlowpiping = false;
+		regionId = -1;
 	}
 
 	@Subscribe
@@ -128,7 +132,7 @@ public class CombatLoggerPlugin extends Plugin
 	{
 		if (checkPlayerName && client.getLocalPlayer() != null && client.getLocalPlayer().getName() != null)
 		{
-			log(String.format("Logged in player is %s", client.getLocalPlayer().getName()));
+			logPlayerName();
 			clientThread.invokeLater(this::sendReminderMessage); // Delay so it's at bottom of chat
 			checkPlayerName = false;
 		}
@@ -141,6 +145,23 @@ public class CombatLoggerPlugin extends Plugin
 				isBlowpiping = false;
 				log(String.format("Player stopped blowpiping"));
 			}
+		}
+
+		checkPlayerRegion();
+	}
+
+	private void checkPlayerRegion()
+	{
+		if (client.getLocalPlayer() != null)
+		{
+			LocalPoint localPoint = client.getLocalPlayer().getLocalLocation();
+			int currentRegionId = localPoint == null ? -1 : WorldPoint.fromLocalInstance(client, localPoint).getRegionID();
+			if (currentRegionId != regionId)
+			{
+				regionId = currentRegionId;
+				log(String.format("Player region %d", regionId));
+			}
+
 		}
 	}
 
@@ -189,7 +210,7 @@ public class CombatLoggerPlugin extends Plugin
 			{
 				isBlowpiping = true;
 			}
-			log(String.format("Player attack animation\t%d\t%s", animationId, local.getInteracting().getName()));
+			log(String.format("Player attack animation\t%d\t%s", animationId, getIdOrName(local.getInteracting())));
 		}
 
 
@@ -211,7 +232,7 @@ public class CombatLoggerPlugin extends Plugin
 			if (target.hasSpotAnim(GraphicID.SPLASH))
 			{
 				// I think technically you may have hit a 0 at the same time someone else splashed, but unlikely
-				log(String.format("%s\t%s\t%d", target.getName(), "SPLASH_ME", 0));
+				log(String.format("%s\t%s\t%d", getIdOrName(target), "SPLASH_ME", 0));
 			}
 		}
 	}
@@ -228,7 +249,7 @@ public class CombatLoggerPlugin extends Plugin
 
 		if (local.hasSpotAnim(GraphicID.SPLASH))
 		{
-			log(String.format("%s\t%s\t%d", local.getName(), "SPLASH_ME", 0));
+			log(String.format("%s\t%s\t%d", getIdOrName(local), "SPLASH_ME", 0));
 		}
 	}
 
@@ -261,37 +282,36 @@ public class CombatLoggerPlugin extends Plugin
 	public void onHitsplatApplied(HitsplatApplied hitsplatApplied)
 	{
 		Actor actor = hitsplatApplied.getActor();
-		String target = actor.getName();
 		Hitsplat hitsplat = hitsplatApplied.getHitsplat();
 
 		int damageAmount = hitsplat.getAmount();
 		int hitType = hitsplat.getHitsplatType();
-		log(String.format("%s\t%s\t%d", target, getHitsplatName(hitType), damageAmount));
+		log(String.format("%s\t%s\t%d", getIdOrName(actor), getHitsplatName(hitType), damageAmount));
 	}
 
 	@Subscribe
 	public void onInteractingChanged(InteractingChanged event)
 	{
-		String source = event.getSource().getName();
+		Actor source = event.getSource();
 		if (event.getTarget() != null &&
 				(event.getTarget() instanceof Player || event.getTarget() instanceof NPC))
 		{
-			String target = event.getTarget().getName();
-			log(String.format("%s changes target to %s", source, target));
+			Actor target = event.getTarget();
+			log(String.format("%s changes target to %s", getIdOrName(source), getIdOrName(target)));
 		}
 	}
 
 	@Subscribe
 	public void onActorDeath(ActorDeath actorDeath)
 	{
-		log(String.format("%s dies", actorDeath.getActor().getName()));
+		log(String.format("%s dies", getIdOrName(actorDeath.getActor())));
 	}
 
 	private void log(String message)
 	{
 		try (BufferedWriter writer = new BufferedWriter(new FileWriter(LOG_FILE, true)))
 		{
-			writer.write(String.format("%s\t%s\n", getCurrentTimestamp(), message));
+			writer.write(String.format("%s %s\t%s\n", client.getTickCount(), getCurrentTimestamp(), message));
 			if (config.logInChat())
 			{
 				chatMessageManager
@@ -312,16 +332,27 @@ public class CombatLoggerPlugin extends Plugin
 		return DATE_FORMAT.format(new Date());
 	}
 
+	private static String getIdOrName(Actor actor)
+	{
+		if (actor instanceof NPC)
+		{
+			return ((NPC) actor).getId() + "-" + ((NPC) actor).getIndex();
+		} else
+		{
+			return actor.getName();
+		}
+	}
+
 	private void createLogFile()
 	{
 		try
 		{
 			LOG_FILE = new File(DIRECTORY, LOG_FILE_NAME + "-" + System.currentTimeMillis() + ".txt");
 			LOG_FILE.createNewFile();
-			log("Log Version 0.0.6");
+			log("Log Version 1.0.0");
 			if (client.getLocalPlayer() != null && client.getLocalPlayer().getName() != null)
 			{
-				log(String.format("Logged in player is %s", client.getLocalPlayer().getName()));
+				logPlayerName();
 				log(String.format("Boosted levels are %s", boostedCombatStats));
 			}
 		}
@@ -329,6 +360,11 @@ public class CombatLoggerPlugin extends Plugin
 		{
 			e.printStackTrace();
 		}
+	}
+
+	private void logPlayerName()
+	{
+		log(String.format("Logged in player is %s", client.getLocalPlayer().getName()));
 	}
 
 	private void sendReminderMessage()
