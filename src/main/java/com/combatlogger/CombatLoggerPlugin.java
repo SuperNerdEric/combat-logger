@@ -51,7 +51,8 @@ public class CombatLoggerPlugin extends Plugin
 	private boolean statChangeLogScheduled;
 	private int hitpointsXpLastUpdated = -1;
 	private List<Integer> previousItemIds;
-	private boolean isBlowpiping = false;
+	private boolean animationChanged = false;
+	private int blowPipeCooldown = 0;
 	private int regionId = -1;
 
 	@Inject
@@ -97,7 +98,7 @@ public class CombatLoggerPlugin extends Plugin
 	protected void shutDown()
 	{
 		previousItemIds = null;
-		isBlowpiping = false;
+		blowPipeCooldown = 0;
 		regionId = -1;
 	}
 
@@ -137,17 +138,72 @@ public class CombatLoggerPlugin extends Plugin
 			checkPlayerName = false;
 		}
 
-		if (isBlowpiping && client.getLocalPlayer() != null)
+		Player local = client.getLocalPlayer();
+		if (local == null)
 		{
-			int animationId = client.getLocalPlayer().getAnimation();
-			if (animationId != 5061 && animationId != 10656)
-			{
-				isBlowpiping = false;
-				log(String.format("Player stopped blowpiping"));
-			}
+			return;
+		}
+
+		int animationId = local.getAnimation();
+
+		checkBlowpipe(animationId, local);
+
+		if (animationChanged)
+		{
+			checkAttackAnimation(local, animationId);
+			animationChanged = false;
 		}
 
 		checkPlayerRegion();
+	}
+
+	private void checkBlowpipe(int animationId, Player local)
+	{
+		if (blowPipeCooldown > 0)
+		{
+			blowPipeCooldown--;
+		}
+		if (animationId == 5061 || animationId == 10656)
+		{
+			if (blowPipeCooldown <= 0)
+			{
+				if (client.getVarpValue(VarPlayer.ATTACK_STYLE) == 1) // Rapid index
+				{
+					blowPipeCooldown = 2;
+				} else
+				{
+					blowPipeCooldown = 3;
+				}
+
+				if (!animationChanged && local.isInteracting() && !local.getInteracting().isDead())
+				{
+					// Our blowpipe attack is ready, and we are still animating, but didn't trigger a new AnimationChanged event
+					// So log it as a new attack animation
+					log(String.format("Player attack animation\t%d\t%s", animationId, getIdOrName(local.getInteracting())));
+				}
+			}
+		}
+	}
+
+	private void checkAttackAnimation(Player local, int animationId)
+	{
+		if (!local.isInteracting())
+		{
+			return;
+		}
+
+		if (AnimationIds.MELEE_IDS.contains(animationId) ||
+				AnimationIds.RANGED_IDS.contains(animationId) ||
+				AnimationIds.MAGE_IDS.contains(animationId))
+		{
+			log(String.format("Player attack animation\t%d\t%s", animationId, getIdOrName(local.getInteracting())));
+		}
+
+
+		if (AnimationIds.MAGE_IDS.contains(animationId))
+		{
+			checkSplash(local);
+		}
 	}
 
 	private void checkPlayerRegion()
@@ -195,29 +251,14 @@ public class CombatLoggerPlugin extends Plugin
 	{
 		Player local = client.getLocalPlayer();
 
-		if (event.getActor() != local || !local.isInteracting())
+		if (event.getActor() != local)
 		{
 			return;
 		}
 
-		int animationId = event.getActor().getAnimation();
-
-		if (AnimationIds.MELEE_IDS.contains(animationId) ||
-				AnimationIds.RANGED_IDS.contains(animationId) ||
-				AnimationIds.MAGE_IDS.contains(animationId))
-		{
-			if (animationId == 5061 || animationId == 10656)
-			{
-				isBlowpiping = true;
-			}
-			log(String.format("Player attack animation\t%d\t%s", animationId, getIdOrName(local.getInteracting())));
-		}
-
-
-		if (AnimationIds.MAGE_IDS.contains(animationId))
-		{
-			clientThread.invokeLater(() -> checkSplash(local));
-		}
+		// If we are standing right next to our target, the AnimationChanged event can fire before we are interacting
+		// So flag that it happened, but let onGameTick handle it, because it always fires last
+		animationChanged = true;
 	}
 
 	private void checkSplash(Player local)
@@ -349,7 +390,7 @@ public class CombatLoggerPlugin extends Plugin
 		{
 			LOG_FILE = new File(DIRECTORY, LOG_FILE_NAME + "-" + System.currentTimeMillis() + ".txt");
 			LOG_FILE.createNewFile();
-			log("Log Version 1.0.0");
+			log("Log Version 1.0.1");
 			if (client.getLocalPlayer() != null && client.getLocalPlayer().getName() != null)
 			{
 				logPlayerName();

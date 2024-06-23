@@ -49,6 +49,8 @@ public class AnimationIds
 			7515, // Dragon sword spec
 			8145, // Rapier
 			1711, // Zamorakian spear
+			1712, // Blue moon spear slash
+			1710, // Blue moon spear crush
 			2062, // Verac's flail, bone mace
 			2066, // Dharok's greataxe slash
 			2067, // Dharok's greataxe crush
@@ -77,6 +79,7 @@ public class AnimationIds
 			7511, // Dinh's bulwark
 			6696, // Dragonfire shield spec
 			7516, // Maul
+			11124, // Elder maul spec
 			1665, // Gadderhammer, Granite maul
 			1666, // Granite maul block
 			1667, // Granite maul spec
@@ -85,7 +88,8 @@ public class AnimationIds
 			3157, // Dragon 2h spec
 			12033, // Dragon longsword spec
 			12031, // Dragon scimitar spec
-			405 // Dragon spear spec
+			405, // Dragon spear spec
+			10989 // Dual macuahuitl
 	);
 
 	public static final List<Integer> RANGED_IDS = Arrays.asList(
@@ -105,7 +109,11 @@ public class AnimationIds
 			9168, // Zaryte crossbow
 			9206, // Rune crossbow (or)
 			7555, // Ballista
-			9858 // Venator bow
+			9858, // Venator bow
+			11057, // Eclipse atlatl
+			11060, // Eclipse atlatl spec
+			10923, // Tonalztics of ralos
+			10914 // Tonalztics of ralos spec
 	);
 
 	public static final List<Integer> MAGE_IDS = Arrays.asList(
