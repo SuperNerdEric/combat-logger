@@ -52,7 +52,7 @@ public class CombatLoggerPlugin extends Plugin
 	private int hitpointsXpLastUpdated = -1;
 	private List<Integer> previousItemIds;
 	private boolean animationChanged = false;
-	private int blowPipeCooldown = 0;
+	private int blowpipeCooldown = 0;
 	private int regionId = -1;
 
 	@Inject
@@ -98,7 +98,7 @@ public class CombatLoggerPlugin extends Plugin
 	protected void shutDown()
 	{
 		previousItemIds = null;
-		blowPipeCooldown = 0;
+		blowpipeCooldown = 0;
 		regionId = -1;
 	}
 
@@ -159,20 +159,20 @@ public class CombatLoggerPlugin extends Plugin
 
 	private void checkBlowpipe(int animationId, Player local)
 	{
-		if (blowPipeCooldown > 0)
+		if (blowpipeCooldown > 0)
 		{
-			blowPipeCooldown--;
+			blowpipeCooldown--;
 		}
 		if (animationId == 5061 || animationId == 10656)
 		{
-			if (blowPipeCooldown <= 0)
+			if (blowpipeCooldown <= 0)
 			{
 				if (client.getVarpValue(VarPlayer.ATTACK_STYLE) == 1) // Rapid index
 				{
-					blowPipeCooldown = 2;
+					blowpipeCooldown = 2;
 				} else
 				{
-					blowPipeCooldown = 3;
+					blowpipeCooldown = 3;
 				}
 
 				if (!animationChanged && local.isInteracting() && !local.getInteracting().isDead())
