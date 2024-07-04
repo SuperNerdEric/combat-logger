@@ -23,6 +23,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.combatlogger.HitSplatUtil.getHitsplatName;
@@ -30,7 +31,7 @@ import static com.combatlogger.HitSplatUtil.getHitsplatName;
 @PluginDescriptor(
 		name = "Combat Logger",
 		description = "Logs combat events to a text file - Upload and analyze your logs at runelogs.com.",
-		tags = {"damage", "dps", "pvm"}
+		tags = {"damage", "dps", "pvm", "tob", "theatre of blood", "toa", "tombs of amascut"}
 )
 public class CombatLoggerPlugin extends Plugin
 {
@@ -40,6 +41,26 @@ public class CombatLoggerPlugin extends Plugin
 	public static File LOG_FILE;
 
 	private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("MM-dd-yyyy HH:mm:ss", Locale.ENGLISH);
+	private static final Pattern ENCOUNTER_PATTERN = Pattern.compile("(Wave|Duration|Challenge)", Pattern.CASE_INSENSITIVE);
+
+	private static final List<Integer> TOB_ORBS_VARBITS = Arrays.asList(
+			Varbits.THEATRE_OF_BLOOD_ORB1,
+			Varbits.THEATRE_OF_BLOOD_ORB2,
+			Varbits.THEATRE_OF_BLOOD_ORB3,
+			Varbits.THEATRE_OF_BLOOD_ORB4,
+			Varbits.THEATRE_OF_BLOOD_ORB5
+	);
+
+	private static final List<Integer> TOA_ORBS_VARBITS = Arrays.asList(
+			Varbits.TOA_MEMBER_0_HEALTH,
+			Varbits.TOA_MEMBER_1_HEALTH,
+			Varbits.TOA_MEMBER_2_HEALTH,
+			Varbits.TOA_MEMBER_3_HEALTH,
+			Varbits.TOA_MEMBER_4_HEALTH,
+			Varbits.TOA_MEMBER_5_HEALTH,
+			Varbits.TOA_MEMBER_6_HEALTH,
+			Varbits.TOA_MEMBER_7_HEALTH
+	);
 
 	static
 	{
@@ -348,6 +369,45 @@ public class CombatLoggerPlugin extends Plugin
 		log(String.format("%s dies", getIdOrName(actorDeath.getActor())));
 	}
 
+	@Subscribe
+	public void onVarbitChanged(VarbitChanged varbitChanged)
+	{
+		if (TOB_ORBS_VARBITS.contains(varbitChanged.getVarbitId()) && isWipe(TOB_ORBS_VARBITS))
+		{
+			log("Theatre of Blood Wipe");
+		} else if (TOA_ORBS_VARBITS.contains(varbitChanged.getVarbitId()) && isWipe(TOA_ORBS_VARBITS))
+		{
+			log("Tombs of Amascut Wipe");
+		}
+	}
+
+	private boolean isWipe(List<Integer> orbVarbits)
+	{
+		return orbVarbits.stream()
+				.allMatch(varbit -> {
+					int value = client.getVarbitValue(varbit);
+					// 0 = hidden
+					// 30 = dead
+					return value == 0 || value == 30;
+				});
+	}
+
+	@Subscribe
+	public void onChatMessage(ChatMessage event)
+	{
+
+		if (event.getType() != ChatMessageType.GAMEMESSAGE || "combat-logger".equals(event.getSender()))
+		{
+			return;
+		}
+
+		String message = event.getMessage();
+		if (ENCOUNTER_PATTERN.matcher(message).find())
+		{
+			log(message);
+		}
+	}
+
 	private void log(String message)
 	{
 		try (BufferedWriter writer = new BufferedWriter(new FileWriter(LOG_FILE, true)))
@@ -358,6 +418,7 @@ public class CombatLoggerPlugin extends Plugin
 				chatMessageManager
 						.queue(QueuedMessage.builder()
 								.type(ChatMessageType.GAMEMESSAGE)
+								.sender("combat-logger")
 								.runeLiteFormattedMessage(message.replace("\t", " "))
 								.build());
 			}
@@ -390,7 +451,7 @@ public class CombatLoggerPlugin extends Plugin
 		{
 			LOG_FILE = new File(DIRECTORY, LOG_FILE_NAME + "-" + System.currentTimeMillis() + ".txt");
 			LOG_FILE.createNewFile();
-			log("Log Version 1.0.1");
+			log("Log Version 1.0.2");
 			if (client.getLocalPlayer() != null && client.getLocalPlayer().getName() != null)
 			{
 				logPlayerName();
