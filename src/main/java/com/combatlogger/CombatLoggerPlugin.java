@@ -372,6 +372,11 @@ public class CombatLoggerPlugin extends Plugin
 	@Subscribe
 	public void onVarbitChanged(VarbitChanged varbitChanged)
 	{
+		if (varbitChanged.getValue() != 30)
+		{
+			return;
+		}
+
 		if (TOB_ORBS_VARBITS.contains(varbitChanged.getVarbitId()) && isWipe(TOB_ORBS_VARBITS))
 		{
 			log("Theatre of Blood Wipe");
