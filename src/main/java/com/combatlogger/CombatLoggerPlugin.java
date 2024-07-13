@@ -2,7 +2,7 @@ package com.combatlogger;
 
 import com.google.inject.Provides;
 import lombok.Getter;
-import messages.DamageMessage;
+import com.combatlogger.messages.DamageMessage;
 import net.runelite.api.*;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;

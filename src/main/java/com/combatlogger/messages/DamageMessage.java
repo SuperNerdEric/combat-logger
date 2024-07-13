@@ -1,4 +1,4 @@
-package messages;
+package com.combatlogger.messages;
 
 import lombok.EqualsAndHashCode;
 import lombok.Value;

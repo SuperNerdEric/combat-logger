@@ -1,6 +1,6 @@
 package com.combatlogger;
 
-import messages.DamageMessage;
+import com.combatlogger.messages.DamageMessage;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.events.GameTick;
