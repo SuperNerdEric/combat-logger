@@ -2,6 +2,7 @@ package com.combatlogger;
 
 import com.google.inject.Provides;
 import lombok.Getter;
+import messages.DamageMessage;
 import net.runelite.api.*;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
@@ -12,14 +13,14 @@ import net.runelite.client.chat.ChatMessageManager;
 import net.runelite.client.chat.QueuedMessage;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.party.PartyService;
+import net.runelite.client.party.WSClient;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 
 
 import javax.inject.Inject;
-import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -87,7 +88,16 @@ public class CombatLoggerPlugin extends Plugin
 	private ChatMessageManager chatMessageManager;
 
 	@Inject
+	private LogQueueManager logQueueManager;
+
+	@Inject
 	private CombatLoggerConfig config;
+
+	@Inject
+	private WSClient wsClient;
+
+	@Inject
+	private PartyService party;
 
 	@Provides
 	CombatLoggerConfig provideConfig(ConfigManager configManager)
@@ -113,6 +123,7 @@ public class CombatLoggerPlugin extends Plugin
 		sendReminderMessage();
 		boostedCombatStats = new BoostedCombatStats(client);
 		createLogFile();
+		wsClient.registerMessage(DamageMessage.class);
 	}
 
 	@Override
@@ -121,6 +132,7 @@ public class CombatLoggerPlugin extends Plugin
 		previousItemIds = null;
 		blowpipeCooldown = 0;
 		regionId = -1;
+		wsClient.unregisterMessage(DamageMessage.class);
 	}
 
 	@Subscribe
@@ -200,7 +212,7 @@ public class CombatLoggerPlugin extends Plugin
 				{
 					// Our blowpipe attack is ready, and we are still animating, but didn't trigger a new AnimationChanged event
 					// So log it as a new attack animation
-					log(String.format("Player attack animation\t%d\t%s", animationId, getIdOrName(local.getInteracting())));
+					logQueueManager.queue(String.format("Player attack animation\t%d\t%s", animationId, getIdOrName(local.getInteracting())));
 				}
 			}
 		}
@@ -217,7 +229,7 @@ public class CombatLoggerPlugin extends Plugin
 				AnimationIds.RANGED_IDS.contains(animationId) ||
 				AnimationIds.MAGE_IDS.contains(animationId))
 		{
-			log(String.format("Player attack animation\t%d\t%s", animationId, getIdOrName(local.getInteracting())));
+			logQueueManager.queue(String.format("Player attack animation\t%d\t%s", animationId, getIdOrName(local.getInteracting())));
 		}
 
 
@@ -236,7 +248,7 @@ public class CombatLoggerPlugin extends Plugin
 			if (currentRegionId != regionId)
 			{
 				regionId = currentRegionId;
-				log(String.format("Player region %d", regionId));
+				logQueueManager.queue(String.format("Player region %d", regionId));
 			}
 
 		}
@@ -256,7 +268,7 @@ public class CombatLoggerPlugin extends Plugin
 				statChangeLogScheduled = true;
 				clientThread.invokeLater(() ->
 				{
-					log(String.format("Boosted levels are %s", boostedCombatStats));
+					logQueueManager.queue(String.format("Boosted levels are %s", boostedCombatStats));
 					statChangeLogScheduled = false;
 				});
 			}
@@ -294,7 +306,7 @@ public class CombatLoggerPlugin extends Plugin
 			if (target.hasSpotAnim(GraphicID.SPLASH))
 			{
 				// I think technically you may have hit a 0 at the same time someone else splashed, but unlikely
-				log(String.format("%s\t%s\t%d", getIdOrName(target), "SPLASH_ME", 0));
+				logQueueManager.queue(String.format("%s\t%s\t%d", getIdOrName(target), "SPLASH_ME", 0));
 			}
 		}
 	}
@@ -311,7 +323,7 @@ public class CombatLoggerPlugin extends Plugin
 
 		if (local.hasSpotAnim(GraphicID.SPLASH))
 		{
-			log(String.format("%s\t%s\t%d", getIdOrName(local), "SPLASH_ME", 0));
+			logQueueManager.queue(String.format("%s\t%s\t%d", getIdOrName(local), "SPLASH_ME", 0));
 		}
 	}
 
@@ -336,7 +348,7 @@ public class CombatLoggerPlugin extends Plugin
 		if (forceLogging || !Objects.equals(currentItemIds, previousItemIds))
 		{
 			previousItemIds = currentItemIds;
-			log(String.format("Player equipment is %s", currentItemIds));
+			logQueueManager.queue(String.format("Player equipment is %s", currentItemIds));
 		}
 	}
 
@@ -347,8 +359,33 @@ public class CombatLoggerPlugin extends Plugin
 		Hitsplat hitsplat = hitsplatApplied.getHitsplat();
 
 		int damageAmount = hitsplat.getAmount();
-		int hitType = hitsplat.getHitsplatType();
-		log(String.format("%s\t%s\t%d", getIdOrName(actor), getHitsplatName(hitType), damageAmount));
+		String target = getIdOrName(actor);
+		String hitsplatName = getHitsplatName(hitsplat.getHitsplatType());
+		String source = "Unknown";
+		String myName = client.getLocalPlayer().getName();
+
+		if (hitsplat.isMine() && !target.equals(myName))
+		{
+			source = myName;
+		}
+
+		logQueueManager.queue(
+				new DamageLog(
+						client.getTickCount(),
+						getCurrentTimestamp(),
+						(String.format("%s\t%s\t%s\t%d", source, hitsplatName, target, damageAmount)),
+						source,
+						getIdOrName(actor),
+						damageAmount,
+						hitsplatName
+				)
+		);
+
+		if (party.isInParty() && hitsplat.isMine() && !target.equals(myName))
+		{
+			DamageMessage damageMessage = new DamageMessage(target, hitsplatName, damageAmount);
+			clientThread.invokeLater(() -> party.send(damageMessage));
+		}
 	}
 
 	@Subscribe
@@ -359,14 +396,14 @@ public class CombatLoggerPlugin extends Plugin
 				(event.getTarget() instanceof Player || event.getTarget() instanceof NPC))
 		{
 			Actor target = event.getTarget();
-			log(String.format("%s changes target to %s", getIdOrName(source), getIdOrName(target)));
+			logQueueManager.queue(String.format("%s changes target to %s", getIdOrName(source), getIdOrName(target)));
 		}
 	}
 
 	@Subscribe
 	public void onActorDeath(ActorDeath actorDeath)
 	{
-		log(String.format("%s dies", getIdOrName(actorDeath.getActor())));
+		logQueueManager.queue(String.format("%s dies", getIdOrName(actorDeath.getActor())));
 	}
 
 	@Subscribe
@@ -379,10 +416,10 @@ public class CombatLoggerPlugin extends Plugin
 
 		if (TOB_ORBS_VARBITS.contains(varbitChanged.getVarbitId()) && isWipe(TOB_ORBS_VARBITS))
 		{
-			log("Theatre of Blood Wipe");
+			logQueueManager.queue("Theatre of Blood Wipe");
 		} else if (TOA_ORBS_VARBITS.contains(varbitChanged.getVarbitId()) && isWipe(TOA_ORBS_VARBITS))
 		{
-			log("Tombs of Amascut Wipe");
+			logQueueManager.queue("Tombs of Amascut Wipe");
 		}
 	}
 
@@ -409,32 +446,11 @@ public class CombatLoggerPlugin extends Plugin
 		String message = event.getMessage();
 		if (ENCOUNTER_PATTERN.matcher(message).find())
 		{
-			log(message);
+			logQueueManager.queue(message);
 		}
 	}
 
-	private void log(String message)
-	{
-		try (BufferedWriter writer = new BufferedWriter(new FileWriter(LOG_FILE, true)))
-		{
-			writer.write(String.format("%s %s\t%s\n", client.getTickCount(), getCurrentTimestamp(), message));
-			if (config.logInChat())
-			{
-				chatMessageManager
-						.queue(QueuedMessage.builder()
-								.type(ChatMessageType.GAMEMESSAGE)
-								.sender("combat-logger")
-								.runeLiteFormattedMessage(message.replace("\t", " "))
-								.build());
-			}
-		}
-		catch (IOException e)
-		{
-			e.printStackTrace();
-		}
-	}
-
-	private static String getCurrentTimestamp()
+	protected static String getCurrentTimestamp()
 	{
 		return DATE_FORMAT.format(new Date());
 	}
@@ -456,11 +472,11 @@ public class CombatLoggerPlugin extends Plugin
 		{
 			LOG_FILE = new File(DIRECTORY, LOG_FILE_NAME + "-" + System.currentTimeMillis() + ".txt");
 			LOG_FILE.createNewFile();
-			log("Log Version 1.0.2");
+			logQueueManager.queue("Log Version 1.1.0");
 			if (client.getLocalPlayer() != null && client.getLocalPlayer().getName() != null)
 			{
 				logPlayerName();
-				log(String.format("Boosted levels are %s", boostedCombatStats));
+				logQueueManager.queue(String.format("Boosted levels are %s", boostedCombatStats));
 			}
 		}
 		catch (IOException e)
@@ -471,7 +487,7 @@ public class CombatLoggerPlugin extends Plugin
 
 	private void logPlayerName()
 	{
-		log(String.format("Logged in player is %s", client.getLocalPlayer().getName()));
+		logQueueManager.queue(String.format("Logged in player is %s", client.getLocalPlayer().getName()));
 	}
 
 	private void sendReminderMessage()

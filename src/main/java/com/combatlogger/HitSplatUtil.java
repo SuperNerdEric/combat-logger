@@ -49,4 +49,24 @@ public class HitSplatUtil
     {
         return hitsplatNames.getOrDefault(hitsplatType, "Unknown_" + hitsplatType);
     }
+
+    /**
+     * Convert a "ME" hitsplat from another player into an "OTHER" hitsplat
+     * Only results in hitsplat names that already exist for lookup purposes
+     * e.g. DAMAGE_MAX_ME -> DAMAGE_OTHER
+     */
+    public static String replaceMeWithExistingOther(String hitsplatName)
+    {
+        return hitsplatName.replace("MAX_ME", "OTHER").replace("ME", "OTHER");
+    }
+
+    /**
+     * Convert a "ME" hitsplat from another player into an "OTHER" hitsplat
+     * Can result in hitsplat names that don't normally exist
+     * e.g. DAMAGE_MAX_ME -> DAMAGE_MAX_OTHER
+     */
+    public static String replaceMeWithNewOther(String hitsplatName)
+    {
+        return hitsplatName.replace("ME", "OTHER");
+    }
 }

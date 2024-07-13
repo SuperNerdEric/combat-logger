@@ -17,12 +17,13 @@ Logs are stored in `.runelite\combat_log`
       Example: `0 03-09-2024 15:29:27	Logged in player is Cow31337Killer`
 
 2. **Hitsplats:**
-    - Hitsplats are applied in this format: `TARGET HITSPLAT_NAME AMOUNT`  
-    - Note: The source of the hitsplat is not available, however hitsplat names that include ME (e.g. DAMAGE_MAX_ME) were either dealt by you or to you.  
-    - Monsters use their monster id that can be checked using the [Wiki Minimal OSRS NPC DB](https://chisel.weirdgloop.org/moid/npc_id.html) followed by a unique identifier.  
-      Example: `12214-6613 DAMAGE_MAX_ME 69` - I did a max hit of 69 to The Leviathan (12214)  
-      Example: `Cow31337Killer DAMAGE_ME 25` - The logged in player (Cow31337Killer) took 25 damage  
-      Example: `7221-56938 DAMAGE_OTHER 10` - Someone else did 10 damage to Scurrius (7221)
+    - Hitsplats are applied in this format: `SOURCE HITSPLAT_NAME TARGET AMOUNT`  
+    - Note: The source of the hitsplat is not available unless it's your damage or a party member's damage  
+    - Monsters use this format: `<NPC_id>-<unique_identifier>`  
+    - The NPC id that can be checked using the [Wiki Minimal OSRS NPC DB](https://chisel.weirdgloop.org/moid/npc_id.html)  
+      Example: `Cow31337Killer DAMAGE_MAX_ME 12214-6613 69` - I did a max hit of 69 to The Leviathan (12214)  
+      Example: `Unknown DAMAGE_ME Cow31337Killer 25` - The logged in player (Cow31337Killer) took 25 damage from an unknown source  
+      Example: `Unknown DAMAGE_OTHER 7221-56938 10` - Someone else did 10 damage to Scurrius (7221)
 
 3. **Equipment:**
     - Equipped items use their item id and can be checked using the [Wiki Minimal OSRS Item DB](https://chisel.weirdgloop.org/moid/item_id.html). You can paste the whole item id list in at once.  
