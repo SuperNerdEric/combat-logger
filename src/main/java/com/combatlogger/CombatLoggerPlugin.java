@@ -1,5 +1,10 @@
 package com.combatlogger;
 
+import com.combatlogger.model.logs.DamageLog;
+import com.combatlogger.model.logs.DeathLog;
+import com.combatlogger.model.logs.TargetChangeLog;
+import com.combatlogger.panel.CombatLoggerPanel;
+import com.combatlogger.util.AnimationIds;
 import com.google.inject.Provides;
 import lombok.Getter;
 import com.combatlogger.messages.DamageMessage;
@@ -17,6 +22,9 @@ import net.runelite.client.party.PartyService;
 import net.runelite.client.party.WSClient;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.ui.ClientToolbar;
+import net.runelite.client.ui.NavigationButton;
+import net.runelite.client.util.ImageUtil;
 
 
 import javax.inject.Inject;
@@ -27,12 +35,13 @@ import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import static com.combatlogger.HitSplatUtil.getHitsplatName;
+import static com.combatlogger.util.BossNames.VERZIK_P1_END;
+import static com.combatlogger.util.HitSplatUtil.getHitsplatName;
 
 @PluginDescriptor(
 		name = "Combat Logger",
-		description = "Logs combat events to a text file - Upload and analyze your logs at runelogs.com.",
-		tags = {"damage", "dps", "pvm", "tob", "theatre of blood", "toa", "tombs of amascut"}
+		description = "Damage meter and logs combat events to a text file - Upload and analyze your logs at runelogs.com.",
+		tags = {"damage", "dps", "pvm", "tob", "theatre of blood", "toa", "tombs of amascut","meter","counter"}
 )
 public class CombatLoggerPlugin extends Plugin
 {
@@ -91,6 +100,9 @@ public class CombatLoggerPlugin extends Plugin
 	private LogQueueManager logQueueManager;
 
 	@Inject
+	private ClientToolbar clientToolbar;
+
+	@Inject
 	private CombatLoggerConfig config;
 
 	@Inject
@@ -98,6 +110,10 @@ public class CombatLoggerPlugin extends Plugin
 
 	@Inject
 	private PartyService party;
+
+	private CombatLoggerPanel panel;
+
+	private NavigationButton navButton;
 
 	@Provides
 	CombatLoggerConfig provideConfig(ConfigManager configManager)
@@ -119,6 +135,17 @@ public class CombatLoggerPlugin extends Plugin
 	@Override
 	protected void startUp()
 	{
+		panel = injector.getInstance(CombatLoggerPanel.class);
+		logQueueManager.startUp(panel);
+
+		navButton = NavigationButton.builder()
+				.tooltip("Combat Logger")
+				.icon(ImageUtil.loadImageResource(getClass(), "/panel_icon.png"))
+				.priority(10)
+				.panel(panel)
+				.build();
+		clientToolbar.addNavigation(navButton);
+
 		DIRECTORY.mkdirs();
 		sendReminderMessage();
 		boostedCombatStats = new BoostedCombatStats(client);
@@ -133,6 +160,9 @@ public class CombatLoggerPlugin extends Plugin
 		blowpipeCooldown = 0;
 		regionId = -1;
 		wsClient.unregisterMessage(DamageMessage.class);
+		clientToolbar.removeNavigation(navButton);
+		panel = null;
+		logQueueManager.shutDown();
 	}
 
 	@Subscribe
@@ -376,6 +406,7 @@ public class CombatLoggerPlugin extends Plugin
 						(String.format("%s\t%s\t%s\t%d", source, hitsplatName, target, damageAmount)),
 						source,
 						getIdOrName(actor),
+						actor.getName(),
 						damageAmount,
 						hitsplatName
 				)
@@ -383,7 +414,7 @@ public class CombatLoggerPlugin extends Plugin
 
 		if (party.isInParty() && hitsplat.isMine() && !target.equals(myName))
 		{
-			DamageMessage damageMessage = new DamageMessage(target, hitsplatName, damageAmount);
+			DamageMessage damageMessage = new DamageMessage(target, actor.getName(), hitsplatName, damageAmount);
 			clientThread.invokeLater(() -> party.send(damageMessage));
 		}
 	}
@@ -393,17 +424,53 @@ public class CombatLoggerPlugin extends Plugin
 	{
 		Actor source = event.getSource();
 		if (event.getTarget() != null &&
+				!event.getSource().isDead() &&
 				(event.getTarget() instanceof Player || event.getTarget() instanceof NPC))
 		{
 			Actor target = event.getTarget();
-			logQueueManager.queue(String.format("%s changes target to %s", getIdOrName(source), getIdOrName(target)));
+			logQueueManager.queue(
+					new TargetChangeLog(
+							client.getTickCount(),
+							getCurrentTimestamp(),
+							String.format("%s changes target to %s", getIdOrName(source), getIdOrName(target)),
+							getIdOrName(source),
+							source.getName(),
+							getIdOrName(target)
+					)
+			);
 		}
 	}
 
 	@Subscribe
 	public void onActorDeath(ActorDeath actorDeath)
 	{
-		logQueueManager.queue(String.format("%s dies", getIdOrName(actorDeath.getActor())));
+		logQueueManager.queue(
+				new DeathLog(
+						client.getTickCount(),
+						getCurrentTimestamp(),
+						String.format("%s dies", getIdOrName(actorDeath.getActor())),
+						getIdOrName(actorDeath.getActor())
+				)
+		);
+	}
+
+	@Subscribe
+	public void onNpcSpawned(NpcSpawned npcSpawned)
+	{
+		NPC npc = npcSpawned.getNpc();
+
+		if (VERZIK_P1_END.contains(npc.getId()) && !panel.getFights().isEmpty() && !panel.getFights().peekLast().isOver())
+		{
+			// P1 Verzik doesn't die, so send a fake death event when it changes forms
+			logQueueManager.queue(
+					new DeathLog(
+							client.getTickCount(),
+							getCurrentTimestamp(),
+							String.format("%s dies", panel.getFights().peekLast().getMainTarget()),
+							panel.getFights().peekLast().getMainTarget()
+					)
+			);
+		}
 	}
 
 	@Subscribe

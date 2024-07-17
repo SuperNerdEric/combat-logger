@@ -9,6 +9,7 @@ import net.runelite.client.party.messages.PartyMemberMessage;
 public class DamageMessage extends PartyMemberMessage
 {
 	String target; // <id>-<index> or <playerName>
+	String targetName;
 	String hitsplatName;
 	int damage;
 }

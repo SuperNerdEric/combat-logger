@@ -1,6 +1,12 @@
 package com.combatlogger;
 
 import com.combatlogger.messages.DamageMessage;
+import com.combatlogger.model.logs.DamageLog;
+import com.combatlogger.model.logs.DeathLog;
+import com.combatlogger.model.logs.Log;
+import com.combatlogger.model.logs.TargetChangeLog;
+import com.combatlogger.panel.CombatLoggerPanel;
+import com.combatlogger.util.HitSplatUtil;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.events.GameTick;
@@ -37,6 +43,8 @@ public class LogQueueManager
 	@Inject
 	private PartyService party;
 
+	private CombatLoggerPanel panel;
+
 	@Inject
 	private LogQueueManager(
 			Client client,
@@ -46,18 +54,45 @@ public class LogQueueManager
 		eventBus.register(this);
 	}
 
+	public void startUp(CombatLoggerPanel panel)
+	{
+		this.panel = panel;
+	}
+
+	public void shutDown()
+	{
+		this.panel = null;
+	}
+
 	@Subscribe
 	public void onGameTick(GameTick event)
 	{
 		int currentTick = client.getTickCount();
 
-		// Wait until 5 ticks have passed before writing to the log file
+		// Wait until 2 ticks have passed before writing to the log file
 		// So that we can enrich the data from other players in the Party with DamageMessage
-		while (!logQueue.isEmpty() && currentTick >= logQueue.peek().getTickCount() + 5)
+		while (!logQueue.isEmpty() && currentTick >= logQueue.peek().getTickCount() + 2)
 		{
 			Log log = logQueue.poll();
 			log(log.getTickCount(), log.getTimestamp(), log.getMessage());
+
+			if (log instanceof DamageLog && isNPC(((DamageLog) log).getTarget()))
+			{
+				panel.addDamage((DamageLog) log);
+			}
+
+			if (log instanceof DeathLog && isNPC(((DeathLog) log).getTarget()))
+			{
+				panel.recordDeath((DeathLog) log);
+			}
+
+			if (log instanceof TargetChangeLog && isNPC(((TargetChangeLog) log).getSource()) && !isNPC(((TargetChangeLog) log).getTarget()))
+			{
+				panel.recordNPCTargettingPlayer((TargetChangeLog) log);
+			}
 		}
+
+		panel.onGameTick(event);
 
 	}
 
@@ -128,6 +163,7 @@ public class LogQueueManager
 							(String.format("%s\t%s\t%s\t%d", eventMember.getDisplayName(), newHitsplatName, event.getTarget(), event.getDamage())),
 							eventMember.getDisplayName(),
 							event.getTarget(),
+							event.getTargetName(),
 							event.getDamage(),
 							newHitsplatName)
 			);
@@ -143,10 +179,14 @@ public class LogQueueManager
 	{
 		logQueue.add(
 				new Log(
-				client.getTickCount(),
-				getCurrentTimestamp(),
-				message
-		));
+						client.getTickCount(),
+						getCurrentTimestamp(),
+						message
+				));
 	}
 
+	public static boolean isNPC(String name)
+	{
+		return name.matches("\\d+-\\d+");
+	}
 }

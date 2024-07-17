@@ -1,4 +1,4 @@
-package com.combatlogger;
+package com.combatlogger.model.logs;
 
 import lombok.Getter;
 import lombok.Setter;

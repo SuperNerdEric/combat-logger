@@ -2,6 +2,17 @@
 Logs combat events to a text file. Upload and analyze your logs at [runelogs.com](https://runelogs.com/).  
 Logs are stored in `.runelite\combat_log`
 
+## Damage Meter
+- Includes a built-in damage meter panel that counts damage done to NPCs
+- Shows damage, DPS, percentage, and kill time
+- Ability to drill down on a specific player's damage and see damage done to each target
+- Ability to select any of the past 20 fights to view
+- Shares damage with Party members
+
+![damage_meter.png](damage_meter.png)
+
+
+## Log File
 ![img.png](img.png)
 
 

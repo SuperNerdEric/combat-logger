@@ -1,4 +1,4 @@
-package com.combatlogger;
+package com.combatlogger.util;
 
 import java.util.Arrays;
 import java.util.List;
