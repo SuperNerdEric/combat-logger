@@ -38,7 +38,7 @@ public class CombatLoggerPanel extends PluginPanel
 	private DamageDrillDownPanel drillDownPanel;
 
 	@Getter
-	private BoundedQueue<Fight> fights = new BoundedQueue<>(10);
+	private BoundedQueue<Fight> fights = new BoundedQueue<>(20);
 	private JComboBox<Fight> fightsComboBox = new JComboBox<>();
 
 	@Getter
