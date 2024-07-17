@@ -32,7 +32,6 @@ import static com.combatlogger.CombatLoggerPlugin.getCurrentTimestamp;
 public class LogQueueManager
 {
 	private final Client client;
-	private final EventBus eventBus;
 	private final Queue<Log> logQueue = new ConcurrentLinkedQueue<>();
 
 	@Inject
@@ -47,21 +46,18 @@ public class LogQueueManager
 	private CombatLoggerPanel panel;
 
 	@Inject
-	private LogQueueManager(
-			Client client,
-			EventBus eventBus)
+	private LogQueueManager(Client client)
 	{
 		this.client = client;
-		this.eventBus = eventBus;
-		this.eventBus.register(this);
 	}
 
-	public void startUp(CombatLoggerPanel panel)
+	public void startUp(CombatLoggerPanel panel, EventBus eventBus)
 	{
 		this.panel = panel;
+		eventBus.register(this);
 	}
 
-	public void shutDown()
+	public void shutDown(EventBus eventBus)
 	{
 		this.panel = null;
 		eventBus.unregister(this);

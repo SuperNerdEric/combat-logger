@@ -17,6 +17,7 @@ import net.runelite.client.callback.ClientThread;
 import net.runelite.client.chat.ChatMessageManager;
 import net.runelite.client.chat.QueuedMessage;
 import net.runelite.client.config.ConfigManager;
+import net.runelite.client.eventbus.EventBus;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.party.PartyService;
 import net.runelite.client.party.WSClient;
@@ -94,6 +95,9 @@ public class CombatLoggerPlugin extends Plugin
 	private ClientThread clientThread;
 
 	@Inject
+	private EventBus eventBus;
+
+	@Inject
 	private ChatMessageManager chatMessageManager;
 
 	@Inject
@@ -136,7 +140,7 @@ public class CombatLoggerPlugin extends Plugin
 	protected void startUp()
 	{
 		panel = injector.getInstance(CombatLoggerPanel.class);
-		logQueueManager.startUp(panel);
+		logQueueManager.startUp(panel, eventBus);
 
 		navButton = NavigationButton.builder()
 				.tooltip("Combat Logger")
@@ -162,7 +166,7 @@ public class CombatLoggerPlugin extends Plugin
 		wsClient.unregisterMessage(DamageMessage.class);
 		clientToolbar.removeNavigation(navButton);
 		panel = null;
-		logQueueManager.shutDown();
+		logQueueManager.shutDown(eventBus);
 	}
 
 	@Subscribe
