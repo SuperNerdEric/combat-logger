@@ -89,6 +89,7 @@ public class CombatLoggerPanel extends PluginPanel
 
 		add(fightsPanel, BorderLayout.NORTH);
 
+		fightsComboBox.setRenderer(new PlaceholderComboBoxRenderer("Start a fight..."));
 		fightsComboBox.addActionListener(e -> {
 			selectedFight = (Fight) fightsComboBox.getSelectedItem();
 			if (selectedFight != null)
@@ -163,7 +164,6 @@ public class CombatLoggerPanel extends PluginPanel
 
 	public void updateFightsComboBox(BoundedQueue<Fight> fights)
 	{
-		fightsComboBox.setRenderer(new PlaceholderComboBoxRenderer("Start a fight..."));
 		fightsComboBox.removeAllItems();
 
 		// Reverse order so the newest fights are first
