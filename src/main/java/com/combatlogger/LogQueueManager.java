@@ -3,6 +3,7 @@ package com.combatlogger;
 import com.combatlogger.messages.DamageMessage;
 import com.combatlogger.model.logs.DamageLog;
 import com.combatlogger.model.logs.DeathLog;
+import com.combatlogger.model.logs.GameMessageLog;
 import com.combatlogger.model.logs.Log;
 import com.combatlogger.model.logs.TargetChangeLog;
 import com.combatlogger.panel.CombatLoggerPanel;
@@ -88,6 +89,11 @@ public class LogQueueManager
 			if (log instanceof TargetChangeLog && isNPC(((TargetChangeLog) log).getSource()) && !isNPC(((TargetChangeLog) log).getTarget()))
 			{
 				panel.recordNPCTargettingPlayer((TargetChangeLog) log);
+			}
+
+			if (log instanceof GameMessageLog)
+			{
+				panel.handleGameMessage((GameMessageLog) log);
 			}
 		}
 

@@ -2,6 +2,7 @@ package com.combatlogger;
 
 import com.combatlogger.model.logs.DamageLog;
 import com.combatlogger.model.logs.DeathLog;
+import com.combatlogger.model.logs.GameMessageLog;
 import com.combatlogger.model.logs.TargetChangeLog;
 import com.combatlogger.panel.CombatLoggerPanel;
 import com.combatlogger.util.AnimationIds;
@@ -517,7 +518,14 @@ public class CombatLoggerPlugin extends Plugin
 		String message = event.getMessage();
 		if (ENCOUNTER_PATTERN.matcher(message).find())
 		{
-			logQueueManager.queue(message);
+			logQueueManager.queue(
+					new GameMessageLog(
+							client.getTickCount(),
+							getCurrentTimestamp(),
+							message
+
+					)
+			);
 		}
 	}
 

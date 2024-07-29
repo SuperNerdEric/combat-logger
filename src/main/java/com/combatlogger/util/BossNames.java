@@ -44,7 +44,6 @@ public class BossNames
 			"Verzik Vitur",
 			"Ba-Ba",
 			"Akkha",
-			"Akkha's Shadow",
 			"Kephri",
 			"Zebak",
 			"Obelisk",

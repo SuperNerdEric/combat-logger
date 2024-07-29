@@ -4,6 +4,7 @@ import com.combatlogger.CombatLoggerPlugin;
 import com.combatlogger.model.logs.DamageLog;
 import com.combatlogger.model.logs.DeathLog;
 import com.combatlogger.model.Fight;
+import com.combatlogger.model.logs.GameMessageLog;
 import com.combatlogger.model.logs.TargetChangeLog;
 import com.combatlogger.util.BossNames;
 import com.combatlogger.util.BoundedQueue;
@@ -45,11 +46,13 @@ public class CombatLoggerPanel extends PluginPanel
 	private Fight selectedFight = null;
 
 	private static final ImageIcon FOLDER_ICON;
+	private static final ImageIcon STOP_ICON;
 	private static final ImageIcon CLOSE_ICON;
 
 	static
 	{
 		FOLDER_ICON = new ImageIcon(ImageUtil.loadImageResource(CombatLoggerPlugin.class, "/folder.png"));
+		STOP_ICON = new ImageIcon(ImageUtil.loadImageResource(CombatLoggerPlugin.class, "/stop.png"));
 		CLOSE_ICON = new ImageIcon(ImageUtil.loadImageResource(CombatLoggerPlugin.class, "/close.png"));
 	}
 
@@ -83,9 +86,23 @@ public class CombatLoggerPanel extends PluginPanel
 				clearFights();
 			}
 		});
+		JButton stopFightButton = createButton(STOP_ICON, "End the current fight", () ->
+		{
+			if (isConfirmed("Are you sure you want to end the current fight?", "End fight"))
+			{
+				if (!fights.isEmpty() && !fights.peekLast().isOver())
+				{
+					fights.peekLast().setOver(true);
+				}
+			}
+		});
 		JPanel fightsPanel = new JPanel(new BorderLayout());
 		fightsPanel.add(fightsComboBox, BorderLayout.CENTER);
-		fightsPanel.add(clearFightsButton, BorderLayout.EAST);
+
+		JPanel buttonPanel = new JPanel(new BorderLayout());
+		buttonPanel.add(stopFightButton, BorderLayout.WEST);
+		buttonPanel.add(clearFightsButton, BorderLayout.EAST);
+		fightsPanel.add(buttonPanel, BorderLayout.EAST);
 
 		add(fightsPanel, BorderLayout.NORTH);
 
@@ -117,9 +134,12 @@ public class CombatLoggerPanel extends PluginPanel
 
 			currentFight.setFightLengthTicks(currentFight.getFightLengthTicks() + 1);
 			updateCurrentFightLength(formatTime(currentFight.getFightLengthTicks()));
-			if (currentFight.getLastActivityTick() + 100 < client.getTickCount())
+			if (
+					(currentFight.getLastActivityTick() + 100 < client.getTickCount() && !currentFight.getFightName().startsWith("Path of"))
+							|| (currentFight.getLastActivityTick() + 500 < client.getTickCount() && currentFight.getFightName().startsWith("Path of"))
+			)
 			{
-				// It's been 1 minute without any activity. End the fight
+				// It's been 1 minute (or 5 minutes in a ToA path) without any activity. End the fight
 				currentFight.setOver(true);
 			}
 
@@ -291,6 +311,28 @@ public class CombatLoggerPanel extends PluginPanel
 		}
 	}
 
+	public void handleGameMessage(GameMessageLog gameMessageLog)
+	{
+		String message = gameMessageLog.getMessage();
+		if (message.startsWith("Challenge started: Path of"))
+		{
+			String fightName = message.substring("Challenge started: ".length()).replace(".", "");
+			Fight newFight = new Fight();
+			newFight.setFightLengthTicks(0);
+			newFight.setLastActivityTick(client.getTickCount());
+			newFight.setFightName(fightName);
+			newFight.setMainTarget(fightName);
+			fights.add(newFight);
+			updateFightsComboBox(fights);
+		} else if (message.startsWith("Challenge complete: Path of") || message.startsWith("Challenge complete: The Wardens"))
+		{
+			if (!fights.isEmpty() && !fights.peekLast().isOver())
+			{
+				fights.peekLast().setOver(true);
+			}
+		}
+	}
+
 	public void recordNPCTargettingPlayer(TargetChangeLog targetChangeLog)
 	{
 		if ((fights.isEmpty() || fights.peekLast().isOver()) && BOSS_NAMES.contains(targetChangeLog.getSourceName()))
@@ -309,7 +351,7 @@ public class CombatLoggerPanel extends PluginPanel
 	public JButton createButton(ImageIcon icon, String toolTipText, Runnable onClick)
 	{
 		JButton button = new JButton(icon);
-		button.setPreferredSize(new Dimension(25, 25));
+		button.setPreferredSize(new Dimension(24, 24));
 		SwingUtil.removeButtonDecorations(button);
 		button.setToolTipText(toolTipText);
 		button.addActionListener(e -> onClick.run());
