@@ -1,11 +1,7 @@
 package com.combatlogger;
 
 import com.combatlogger.messages.DamageMessage;
-import com.combatlogger.model.logs.DamageLog;
-import com.combatlogger.model.logs.DeathLog;
-import com.combatlogger.model.logs.GameMessageLog;
-import com.combatlogger.model.logs.Log;
-import com.combatlogger.model.logs.TargetChangeLog;
+import com.combatlogger.model.logs.*;
 import com.combatlogger.panel.CombatLoggerPanel;
 import com.combatlogger.util.HitSplatUtil;
 import net.runelite.api.ChatMessageType;
@@ -79,21 +75,18 @@ public class LogQueueManager
 			if (log instanceof DamageLog && isNPC(((DamageLog) log).getTarget()))
 			{
 				panel.addDamage((DamageLog) log);
-			}
-
-			if (log instanceof DeathLog && isNPC(((DeathLog) log).getTarget()))
+			} else if (log instanceof DeathLog && isNPC(((DeathLog) log).getTarget()))
 			{
 				panel.recordDeath((DeathLog) log);
-			}
-
-			if (log instanceof TargetChangeLog && isNPC(((TargetChangeLog) log).getSource()) && !isNPC(((TargetChangeLog) log).getTarget()))
+			} else if (log instanceof TargetChangeLog && isNPC(((TargetChangeLog) log).getSource()) && !isNPC(((TargetChangeLog) log).getTarget()))
 			{
 				panel.recordNPCTargettingPlayer((TargetChangeLog) log);
-			}
-
-			if (log instanceof GameMessageLog)
+			} else if (log instanceof GameMessageLog)
 			{
 				panel.handleGameMessage((GameMessageLog) log);
+			} else if (log instanceof AttackAnimationLog)
+			{
+				panel.addTicks((AttackAnimationLog) log);
 			}
 		}
 

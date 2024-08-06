@@ -1,11 +1,10 @@
 package com.combatlogger.panel;
 
+import com.combatlogger.CombatLoggerConfig;
 import com.combatlogger.CombatLoggerPlugin;
-import com.combatlogger.model.logs.DamageLog;
-import com.combatlogger.model.logs.DeathLog;
+import com.combatlogger.model.logs.*;
 import com.combatlogger.model.Fight;
-import com.combatlogger.model.logs.GameMessageLog;
-import com.combatlogger.model.logs.TargetChangeLog;
+import com.combatlogger.util.AnimationIds;
 import com.combatlogger.util.BossNames;
 import com.combatlogger.util.BoundedQueue;
 import lombok.Getter;
@@ -27,11 +26,13 @@ import javax.inject.Inject;
 import static com.combatlogger.CombatLoggerPlugin.DIRECTORY;
 import static com.combatlogger.model.Fight.formatTime;
 import static com.combatlogger.util.BossNames.BOSS_NAMES;
+import static com.combatlogger.util.BossNames.MINION_TO_BOSS;
 import static com.combatlogger.util.HitSplatUtil.NON_DAMAGE_HITSPLATS;
 
 public class CombatLoggerPanel extends PluginPanel
 {
 	private final Client client;
+	private CombatLoggerConfig config;
 	private CardLayout cardLayout;
 	private JLabel currentFightLengthLabel = new JLabel("00:00");
 	private JPanel damageMeterPanel;
@@ -57,9 +58,10 @@ public class CombatLoggerPanel extends PluginPanel
 	}
 
 	@Inject
-	public CombatLoggerPanel(Client client)
+	public CombatLoggerPanel(Client client, CombatLoggerConfig config)
 	{
 		this.client = client;
+		this.config = config;
 
 		final JPanel topPanel = new JPanel();
 		topPanel.setLayout(new BorderLayout());
@@ -116,8 +118,8 @@ public class CombatLoggerPanel extends PluginPanel
 			}
 		});
 
-		damageOverviewPanel = new DamageOverviewPanel(this);
-		drillDownPanel = new DamageDrillDownPanel(this);
+		damageOverviewPanel = new DamageOverviewPanel(this, config);
+		drillDownPanel = new DamageDrillDownPanel(this, config);
 
 		damageMeterPanel.add(damageOverviewPanel, "overview");
 		damageMeterPanel.add(drillDownPanel, "drilldown");
@@ -148,6 +150,19 @@ public class CombatLoggerPanel extends PluginPanel
 		} else
 		{
 			updateCurrentFightLength("00:00");
+		}
+	}
+
+	public void configChanged()
+	{
+		// We changed a panel related config, so recreate the overview panel and go back to it
+		if (!fights.isEmpty())
+		{
+			Fight currentFight = fights.peekLast();
+			List<PlayerStats> playerStats = getPlayerDamageForFight(currentFight);
+			updateOverviewPanel(playerStats);
+			showOverviewPanel();
+			updateFightsComboBox(fights);
 		}
 	}
 
@@ -201,43 +216,58 @@ public class CombatLoggerPanel extends PluginPanel
 			return Collections.emptyList();
 		}
 
-		// Aggregate damage by player
-		Map<String, Integer> nameDamageMap = fight.getPlayerDamageMap().entrySet().stream()
+		// Aggregate stats (e.g. damage) by player
+		Map<String, PlayerStats> playerStatsMap = fight.getPlayerDataMap().entrySet().stream()
 				.collect(Collectors.toMap(
 						Map.Entry::getKey, // player name
-						entry -> entry.getValue().getDamageMap().values().stream().mapToInt(Integer::intValue).sum() // total damage done by player
+						entry -> {
+							int totalDamage = entry.getValue().getTargetDataMap().values().stream().mapToInt(Fight.PlayerData.PlayerTargetData::getDamage).sum();
+							int totalActivityTicks = entry.getValue().getTargetDataMap().values().stream().mapToInt(Fight.PlayerData.PlayerTargetData::getActivityTicks).sum();
+							return new PlayerStats(entry.getKey(), totalDamage, totalActivityTicks);
+						}
 				));
 
-		return calculatePlayerStats(fight, nameDamageMap);
+		return calculatePlayerStats(fight, playerStatsMap);
 	}
 
 	public List<PlayerStats> getBreakdownDamage(Fight fight, String player)
 	{
-		if (fight == null || !fight.getPlayerDamageMap().containsKey(player))
+		if (fight == null || !fight.getPlayerDataMap().containsKey(player))
 		{
 			return Collections.emptyList();
 		}
 
-		Map<String, Integer> nameDamageMap = fight.getPlayerDamageMap().get(player).getDamageMap();
+		Map<String, PlayerStats> playerStatsMap = fight.getPlayerDataMap().get(player).getTargetDataMap().entrySet().stream()
+				.collect(Collectors.toMap(
+						Map.Entry::getKey,
+						entry -> new PlayerStats(entry.getKey(), entry.getValue().getDamage(), entry.getValue().getActivityTicks())
+				));
 
-		return calculatePlayerStats(fight, nameDamageMap);
+		return calculatePlayerStats(fight, playerStatsMap);
 	}
 
-	public List<PlayerStats> calculatePlayerStats(Fight fight, Map<String, Integer> nameDamageMap)
+	public List<PlayerStats> calculatePlayerStats(Fight fight, Map<String, PlayerStats> playerStatsMap)
 	{
-		List<PlayerStats> playerStats = new ArrayList<>();
+		List<PlayerStats> playerStatsList = new ArrayList<>();
 		double fightLengthSeconds = fight.getFightLengthTicks() * 0.6;
-		int totalDamage = nameDamageMap.values().stream().mapToInt(Integer::intValue).sum();
+		int totalDamage = playerStatsMap.values().stream().mapToInt(PlayerStats::getDamage).sum();
 
-		nameDamageMap.forEach((name, damage) -> {
-			double dps = damage / fightLengthSeconds;
-			double percentOfTotalDamage = (double) damage / totalDamage * 100;
-			playerStats.add(new PlayerStats(name, damage, dps, percentOfTotalDamage));
+		playerStatsMap.forEach((name, playerStats) -> {
+			double dps = playerStats.getDamage() / fightLengthSeconds;
+			double percentOfTotalDamage = (double) playerStats.getDamage() / totalDamage * 100;
+			if (Double.isNaN(percentOfTotalDamage))
+			{
+				percentOfTotalDamage = 0;
+			}
+
+			playerStats.setDps(dps);
+			playerStats.setPercentDamage(percentOfTotalDamage);
+			playerStatsList.add(playerStats);
 		});
 
-		playerStats.sort(Comparator.comparingInt(PlayerStats::getTotalDamage).reversed());
+		playerStatsList.sort(Comparator.comparingInt(PlayerStats::getDamage).reversed());
 
-		return playerStats;
+		return playerStatsList;
 	}
 
 	public void clearFights()
@@ -259,9 +289,9 @@ public class CombatLoggerPanel extends PluginPanel
 
 		if (fights.isEmpty() || fights.peekLast().isOver())
 		{
-			if (damageLog.getSource().equals("Unknown") && !BOSS_NAMES.contains(damageLog.getTargetName()))
+			if (damageLog.getSource().equals("Unknown") && !BOSS_NAMES.contains(damageLog.getTargetName()) && !MINION_TO_BOSS.containsKey(damageLog.getTargetName()))
 			{
-				// Don't start a fight if the source is Unknown unless it's a boss
+				// Don't start a fight if the source is Unknown unless it's a boss or a minion of a boss
 				return;
 			}
 			currentFight = new Fight();
@@ -291,14 +321,47 @@ public class CombatLoggerPanel extends PluginPanel
 
 		currentFight.setLastActivityTick(client.getTickCount());
 
-		Fight.PlayerTotalDamage playerDamage = currentFight.getPlayerDamageMap().get(damageLog.getSource());
-		if (playerDamage == null)
+		Fight.PlayerData playerData = currentFight.getPlayerDataMap().get(damageLog.getSource());
+		if (playerData == null)
 		{
-			playerDamage = new Fight.PlayerTotalDamage(damageLog.getSource());
+			playerData = new Fight.PlayerData(damageLog.getSource());
 		}
-		playerDamage.addDamage(damageLog.getTargetName(), damageLog.getDamageAmount());
-		currentFight.getPlayerDamageMap().put(damageLog.getSource(), playerDamage);
+		playerData.addDamage(damageLog.getTargetName(), damageLog.getDamageAmount());
+		currentFight.getPlayerDataMap().put(damageLog.getSource(), playerData);
 
+		updateFightsComboBox(fights);
+	}
+
+	public void addTicks(AttackAnimationLog attackAnimationLog)
+	{
+		Fight currentFight;
+
+		if (fights.isEmpty() || fights.peekLast().isOver())
+		{
+			if (!attackAnimationLog.getSource().equals(client.getLocalPlayer().getName()) && !BOSS_NAMES.contains(attackAnimationLog.getTargetName()) && !MINION_TO_BOSS.containsKey(attackAnimationLog.getTargetName()))
+			{
+				// Don't start a fight if the source is not us unless it's a boss or a minion of a boss
+				return;
+			}
+			currentFight = new Fight();
+			currentFight.setFightLengthTicks(0);
+			currentFight.setFightName(attackAnimationLog.getTargetName());
+			currentFight.setMainTarget(attackAnimationLog.getTarget());
+			fights.add(currentFight);
+		} else
+		{
+			currentFight = fights.peekLast();
+		}
+
+		currentFight.setLastActivityTick(client.getTickCount());
+
+		Fight.PlayerData playerData = currentFight.getPlayerDataMap().get(attackAnimationLog.getSource());
+		if (playerData == null)
+		{
+			playerData = new Fight.PlayerData(attackAnimationLog.getSource());
+		}
+		playerData.addActivityTicks(attackAnimationLog.getTargetName(), AnimationIds.getTicks(attackAnimationLog.getAnimationId(), attackAnimationLog.getWeaponId()));
+		currentFight.getPlayerDataMap().put(attackAnimationLog.getSource(), playerData);
 		updateFightsComboBox(fights);
 	}
 

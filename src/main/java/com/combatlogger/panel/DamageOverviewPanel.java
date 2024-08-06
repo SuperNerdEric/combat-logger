@@ -1,5 +1,7 @@
 package com.combatlogger.panel;
 
+import com.combatlogger.CombatLoggerConfig;
+
 import javax.swing.*;
 import javax.swing.border.LineBorder;
 import java.awt.*;
@@ -9,9 +11,9 @@ import java.util.List;
 
 public class DamageOverviewPanel extends DamageBarsPanel
 {
-	public DamageOverviewPanel(CombatLoggerPanel parentPanel)
+	public DamageOverviewPanel(CombatLoggerPanel parentPanel, CombatLoggerConfig config)
 	{
-		super(parentPanel);
+		super(parentPanel, config);
 
 		topPanel.setLayout(new BorderLayout());
 		JLabel textLabel = new JLabel("Overview");
@@ -23,7 +25,7 @@ public class DamageOverviewPanel extends DamageBarsPanel
 	public void setPlayerStats(List<PlayerStats> playerStats)
 	{
 		// We use the highest player's damage instead of the sum, because the top player should have a full bar
-		int highestDamage = playerStats.isEmpty() ? 0 : playerStats.get(0).totalDamage;
+		int highestDamage = playerStats.isEmpty() ? 0 : playerStats.get(0).damage;
 
 		addDamageBars(playerStats, highestDamage);
 		for (DamageBar damageBar : damageBars)

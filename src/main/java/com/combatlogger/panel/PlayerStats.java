@@ -1,21 +1,26 @@
 package com.combatlogger.panel;
 
 import lombok.Getter;
+import lombok.Setter;
 
+@Getter
+@Setter
 public class PlayerStats
 {
 	String name;
 
-	@Getter
-	int totalDamage;
+	int damage;
+
 	double dps;
+
+	int ticks;
+
 	double percentDamage;
 
-	public PlayerStats(String name, int totalDamage, double dps, double percentDamage)
+	public PlayerStats(String name, int damage, int ticks)
 	{
 		this.name = name;
-		this.totalDamage = totalDamage;
-		this.dps = dps;
-		this.percentDamage = percentDamage;
+		this.damage = damage;
+		this.ticks = ticks;
 	}
 }

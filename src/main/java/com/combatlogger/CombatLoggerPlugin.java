@@ -1,9 +1,6 @@
 package com.combatlogger;
 
-import com.combatlogger.model.logs.DamageLog;
-import com.combatlogger.model.logs.DeathLog;
-import com.combatlogger.model.logs.GameMessageLog;
-import com.combatlogger.model.logs.TargetChangeLog;
+import com.combatlogger.model.logs.*;
 import com.combatlogger.panel.CombatLoggerPanel;
 import com.combatlogger.util.AnimationIds;
 import com.google.inject.Provides;
@@ -13,6 +10,7 @@ import net.runelite.api.*;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.*;
+import net.runelite.api.kit.KitType;
 import net.runelite.client.RuneLite;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.chat.ChatMessageManager;
@@ -20,6 +18,7 @@ import net.runelite.client.chat.QueuedMessage;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.EventBus;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.party.PartyService;
 import net.runelite.client.party.WSClient;
 import net.runelite.client.plugins.Plugin;
@@ -43,7 +42,7 @@ import static com.combatlogger.util.HitSplatUtil.getHitsplatName;
 @PluginDescriptor(
 		name = "Combat Logger",
 		description = "Damage meter and logs combat events to a text file - Upload and analyze your logs at runelogs.com.",
-		tags = {"damage", "dps", "pvm", "tob", "theatre of blood", "toa", "tombs of amascut","meter","counter"}
+		tags = {"damage", "dps", "pvm", "tob", "theatre of blood", "toa", "tombs of amascut", "meter", "counter", "tick"}
 )
 public class CombatLoggerPlugin extends Plugin
 {
@@ -84,8 +83,7 @@ public class CombatLoggerPlugin extends Plugin
 	private boolean statChangeLogScheduled;
 	private int hitpointsXpLastUpdated = -1;
 	private List<Integer> previousItemIds;
-	private boolean animationChanged = false;
-	private int blowpipeCooldown = 0;
+	private Set<Integer> playerAnimationChanges = new HashSet<>();
 	private int regionId = -1;
 
 	@Inject
@@ -162,7 +160,7 @@ public class CombatLoggerPlugin extends Plugin
 	protected void shutDown()
 	{
 		previousItemIds = null;
-		blowpipeCooldown = 0;
+		playerAnimationChanges.clear();
 		regionId = -1;
 		wsClient.unregisterMessage(DamageMessage.class);
 		clientToolbar.removeNavigation(navButton);
@@ -212,51 +210,72 @@ public class CombatLoggerPlugin extends Plugin
 			return;
 		}
 
-		int animationId = local.getAnimation();
+		List<Player> players = client.getPlayers();
+		players.forEach(this::checkBlowpipe);
 
-		checkBlowpipe(animationId, local);
-
-		if (animationChanged)
+		for (int playerId : playerAnimationChanges)
 		{
-			checkAttackAnimation(local, animationId);
-			animationChanged = false;
+			Player player = players.stream()
+					.filter(p -> p.getId() == playerId)
+					.findFirst()
+					.orElse(null);
+			if (player != null)
+			{
+				int animationId = player.getAnimation();
+				checkAttackAnimation(player, animationId);
+			}
 		}
+		playerAnimationChanges.clear();
 
 		checkPlayerRegion();
 	}
 
-	private void checkBlowpipe(int animationId, Player local)
+	private void checkBlowpipe(Player player)
 	{
-		if (blowpipeCooldown > 0)
-		{
-			blowpipeCooldown--;
-		}
-		if (animationId == 5061 || animationId == 10656)
-		{
-			if (blowpipeCooldown <= 0)
-			{
-				if (client.getVarpValue(VarPlayer.ATTACK_STYLE) == 1) // Rapid index
-				{
-					blowpipeCooldown = 2;
-				} else
-				{
-					blowpipeCooldown = 3;
-				}
+		int animationId = player.getAnimation();
 
-				if (!animationChanged && local.isInteracting() && !local.getInteracting().isDead())
-				{
-					// Our blowpipe attack is ready, and we are still animating, but didn't trigger a new AnimationChanged event
-					// So log it as a new attack animation
-					logQueueManager.queue(String.format("Player attack animation\t%d\t%s", animationId, getIdOrName(local.getInteracting())));
-				}
-			}
+		if ((animationId == 5061 || animationId == 10656) && player.getAnimationFrame() == 0 && player.getInteracting() != null)
+		{
+			// Blowpipes will restart their attack animation (at frame 0) without sending an AnimationChanged event
+			// So we just check every player if they have the blowpipe animation at frame 0
+			logAttackAnimation(animationId, player);
 		}
 	}
 
-	private void checkAttackAnimation(Player local, int animationId)
+	private void logAttackAnimation(int animationId, Player player)
 	{
-		if (!local.isInteracting())
+		int weaponId = -1;
+		if (player.getPlayerComposition() != null)
 		{
+			weaponId = player.getPlayerComposition().getEquipmentId(KitType.WEAPON);
+		}
+
+		logQueueManager.queue(
+				new AttackAnimationLog(
+						client.getTickCount(),
+						getCurrentTimestamp(),
+						String.format("%s attack animation %d\t%s", player.getName(), animationId, getIdOrName(player.getInteracting())),
+						player.getName(),
+						getIdOrName(player.getInteracting()),
+						player.getInteracting().getName(),
+						animationId,
+						weaponId
+				)
+		);
+	}
+
+	private void checkAttackAnimation(Player player, int animationId)
+	{
+		if (player.getInteracting() == null)
+		{
+			// It's possible we see a player interacting, but their interacting target is outside our visibility range
+			// Just not going to count those for now
+			return;
+		}
+
+		if (animationId == 5061 || animationId == 10656)
+		{
+			// Blowpipe animations are handled in checkBlowpipe
 			return;
 		}
 
@@ -264,11 +283,11 @@ public class CombatLoggerPlugin extends Plugin
 				AnimationIds.RANGED_IDS.contains(animationId) ||
 				AnimationIds.MAGE_IDS.contains(animationId))
 		{
-			logQueueManager.queue(String.format("Player attack animation\t%d\t%s", animationId, getIdOrName(local.getInteracting())));
+			logAttackAnimation(animationId, player);
 		}
 
-
-		if (AnimationIds.MAGE_IDS.contains(animationId))
+		Player local = client.getLocalPlayer();
+		if (local != null && local.getId() == player.getId() && AnimationIds.MAGE_IDS.contains(animationId))
 		{
 			checkSplash(local);
 		}
@@ -317,16 +336,14 @@ public class CombatLoggerPlugin extends Plugin
 	@Subscribe
 	public void onAnimationChanged(AnimationChanged event)
 	{
-		Player local = client.getLocalPlayer();
-
-		if (event.getActor() != local)
+		if (!(event.getActor() instanceof Player))
 		{
 			return;
 		}
 
 		// If we are standing right next to our target, the AnimationChanged event can fire before we are interacting
 		// So flag that it happened, but let onGameTick handle it, because it always fires last
-		animationChanged = true;
+		playerAnimationChanges.add(((Player) event.getActor()).getId());
 	}
 
 	private void checkSplash(Player local)
@@ -529,6 +546,21 @@ public class CombatLoggerPlugin extends Plugin
 		}
 	}
 
+	@Subscribe
+	public void onConfigChanged(ConfigChanged event)
+	{
+
+		if (!event.getGroup().equals("combatlogger"))
+		{
+			return;
+		}
+
+		if (event.getKey().equals("secondaryMetric"))
+		{
+			panel.configChanged();
+		}
+	}
+
 	protected static String getCurrentTimestamp()
 	{
 		return DATE_FORMAT.format(new Date());
@@ -551,7 +583,7 @@ public class CombatLoggerPlugin extends Plugin
 		{
 			LOG_FILE = new File(DIRECTORY, LOG_FILE_NAME + "-" + System.currentTimeMillis() + ".txt");
 			LOG_FILE.createNewFile();
-			logQueueManager.queue("Log Version 1.1.1");
+			logQueueManager.queue("Log Version 1.1.2");
 			if (client.getLocalPlayer() != null && client.getLocalPlayer().getName() != null)
 			{
 				logPlayerName();

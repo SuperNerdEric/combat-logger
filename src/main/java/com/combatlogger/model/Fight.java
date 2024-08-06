@@ -14,7 +14,7 @@ public class Fight
 
 	private String mainTarget; // <id>-<index>
 
-	private HashMap<String, PlayerTotalDamage> playerDamageMap = new HashMap<>();
+	private HashMap<String, PlayerData> playerDataMap = new HashMap<>();
 
 	private int fightLengthTicks = 0;
 
@@ -46,21 +46,42 @@ public class Fight
 		return String.format("%02d:%02d.%d", minutes, seconds, tenths);
 	}
 
-	public static class PlayerTotalDamage
+	public static class PlayerData
 	{
 		private final String name;
 
 		@Getter
-		private HashMap<String, Integer> damageMap = new HashMap<>(); // key=target, value=damage
+		private HashMap<String, PlayerTargetData> targetDataMap = new HashMap<>(); // key=target
 
-		public PlayerTotalDamage(String name)
+		public PlayerData(String name)
 		{
 			this.name = name;
 		}
 
 		public void addDamage(String target, int damage)
 		{
-			damageMap.merge(target, damage, Integer::sum);
+			targetDataMap.computeIfAbsent(target, k -> new PlayerTargetData(0, 0))
+					.setDamage(targetDataMap.get(target).getDamage() + damage);
+		}
+
+		public void addActivityTicks(String target, int ticks)
+		{
+			targetDataMap.computeIfAbsent(target, k -> new PlayerTargetData(0, 0))
+					.setActivityTicks(targetDataMap.get(target).getActivityTicks() + ticks);
+		}
+
+		@Getter
+		@Setter
+		public static class PlayerTargetData
+		{
+			private int damage;
+			private int activityTicks;
+
+			public PlayerTargetData(int damage, int activityTicks)
+			{
+				this.damage = damage;
+				this.activityTicks = activityTicks;
+			}
 		}
 	}
 }

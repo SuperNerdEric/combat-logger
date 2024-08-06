@@ -1,5 +1,7 @@
 package com.combatlogger.panel;
 
+import com.combatlogger.CombatLoggerConfig;
+
 import javax.swing.*;
 import java.awt.*;
 import java.util.ArrayList;
@@ -7,14 +9,16 @@ import java.util.List;
 
 public abstract class DamageBarsPanel extends JPanel
 {
+	private CombatLoggerConfig config;
 	protected List<DamageBar> damageBars = new ArrayList<>();
 	protected CombatLoggerPanel parentPanel;
 
 	protected JPanel topPanel;
 
-	public DamageBarsPanel(CombatLoggerPanel parentPanel)
+	public DamageBarsPanel(CombatLoggerPanel parentPanel, CombatLoggerConfig config)
 	{
 		this.parentPanel = parentPanel;
+		this.config = config;
 		setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
 
 		topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 2, 0));
@@ -27,9 +31,15 @@ public abstract class DamageBarsPanel extends JPanel
 	{
 		DamageBar damageBar = new DamageBar();
 		damageBar.setMaximumValue(maximumValue);
-		damageBar.setValue(stats.totalDamage);
+		damageBar.setValue(stats.damage);
 		damageBar.setLeftLabel(stats.name);
-		damageBar.setRightLabel(String.format("%d (%.2f, %.2f%%)", stats.totalDamage, stats.dps, stats.percentDamage));
+		if (this.config.secondaryMetric() == CombatLoggerConfig.SecondaryMetric.DPS)
+		{
+			damageBar.setRightLabel(String.format("%d (%.2f, %.2f%%)", stats.damage, stats.dps, stats.percentDamage));
+		} else
+		{
+			damageBar.setRightLabel(String.format("%d (%s, %.2f%%)", stats.damage, stats.getTicks(), stats.percentDamage));
+		}
 		return damageBar;
 	}
 
@@ -40,9 +50,12 @@ public abstract class DamageBarsPanel extends JPanel
 
 		for (PlayerStats stats : damageBreakdown)
 		{
-			DamageBar newBar = createDamageBar(stats, maximumValue);
-			damageBars.add(newBar);
-			add(newBar);
+			if (stats.damage > 0)
+			{
+				DamageBar newBar = createDamageBar(stats, maximumValue);
+				damageBars.add(newBar);
+				add(newBar);
+			}
 		}
 
 		revalidate();

@@ -1,5 +1,6 @@
 package com.combatlogger.panel;
 
+import com.combatlogger.CombatLoggerConfig;
 import com.combatlogger.CombatLoggerPlugin;
 import net.runelite.client.util.ImageUtil;
 
@@ -20,9 +21,9 @@ public class DamageDrillDownPanel extends DamageBarsPanel
 	}
 
 
-	public DamageDrillDownPanel(CombatLoggerPanel parentPanel)
+	public DamageDrillDownPanel(CombatLoggerPanel parentPanel, CombatLoggerConfig config)
 	{
-		super(parentPanel);
+		super(parentPanel, config);
 
 		JButton backButton = parentPanel.createButton(BACK_ICON, "Back to Overview", parentPanel::showOverviewPanel);
 		backButton.setPreferredSize(new Dimension(22, 25));
@@ -35,7 +36,7 @@ public class DamageDrillDownPanel extends DamageBarsPanel
 	public void setPlayerStats(String playerName, List<PlayerStats> damageBreakdown)
 	{
 		breakdownLabel.setText("Breakdown: " + playerName);
-		int totalDamage = damageBreakdown.stream().mapToInt(stats -> stats.totalDamage).sum();
+		int totalDamage = damageBreakdown.stream().mapToInt(stats -> stats.damage).sum();
 
 		addDamageBars(damageBreakdown, totalDamage);
 	}
