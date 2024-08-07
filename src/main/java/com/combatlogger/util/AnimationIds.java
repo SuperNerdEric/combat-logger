@@ -10,7 +10,7 @@ public class AnimationIds
 	public static final List<Integer> MELEE_IDS = Arrays.asList(
 			390, // Slash, Swift blade, Osmumten's fang
 			9471, // Osmumten's fang stab
-			6118, // Osmumten's fang spec
+			11222, // Osmumten's fang spec
 			8288, // Dragon hunter lance stab, Swift blade
 			8289, // Dragon hunter lance slash
 			8290, // Dragon hunter lance crush
@@ -25,7 +25,8 @@ public class AnimationIds
 			429, // Spear crush
 			440, // Spear slash, Chally
 			1203, // Chally spec
-			1378, // Voidwaker spec
+			1378, // Dragon warhammer spec
+			11275, // Voidwaker spec
 			2323, // Goblin paint cannon
 			376, // Dragon dagger stab
 			377, // Dragon dagger slash
@@ -266,6 +267,7 @@ public class AnimationIds
 			case 1074: // Magic shortbow spec
 			case 1167: // Wave with staff, Sanguinesti staff, Tridents
 			case 10501: // Warped sceptre
+			case 11275: // Voidwaker spec
 				ticks = 4;
 				break;
 
@@ -297,7 +299,7 @@ public class AnimationIds
 			case 10172: // Soulreaper Axe slash
 			case 10173: // Soulreaper Axe spec
 			case 9471: // Osmumten's Fang Stab
-			case 6118: // Osmumten's Fang Spec
+			case 11222: // Osmumten's fang spec
 			case 1665: // Gadderhammer, Granite maul
 				if (weaponId == GRANITE_MAUL || weaponId == GRANITE_MAUL_24225 || weaponId == GRANITE_MAUL_12848 || weaponId == GRANITE_MAUL_24227)
 				{
@@ -346,12 +348,7 @@ public class AnimationIds
 					ticks = 5;
 				}
 				break;
-			case 1378:
-				if (weaponId == VOIDWAKER)
-				{
-					ticks = 4;
-					break;
-				}
+			case 1378: // Dragon warhammer spec
 			case 7044: // Godsword
 			case 7045: // Saradomin sword, Godswords
 			case 7054: // Saradomin sword, Godswords
