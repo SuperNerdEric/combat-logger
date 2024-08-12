@@ -11,9 +11,10 @@ public interface CombatLoggerConfig extends Config
     @ConfigItem(
             position = 0,
             keyName = "logInChat",
-            name = "Log In Chat",
+            name = "Log In Chat (Debug)",
             description = "Display logs in chat" +
-                    "<br><strong>This is very excessive, mostly for testing/verification.<strong>"
+                    "<br><strong>This is very excessive, mostly for testing/verification.<strong>",
+            warning = "Enabling this will spam your chat with combat messages. This option is mostly for debugging and is not necessary for the text file logging or damage meter."
     )
     default boolean logInChat()
     {
