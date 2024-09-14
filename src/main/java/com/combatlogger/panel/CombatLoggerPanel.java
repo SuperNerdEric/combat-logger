@@ -15,6 +15,7 @@ import net.runelite.client.util.ImageUtil;
 import net.runelite.client.util.LinkBrowser;
 import net.runelite.client.util.SwingUtil;
 
+import javax.inject.Singleton;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
@@ -29,6 +30,7 @@ import static com.combatlogger.util.BossNames.BOSS_NAMES;
 import static com.combatlogger.util.BossNames.MINION_TO_BOSS;
 import static com.combatlogger.util.HitSplatUtil.NON_DAMAGE_HITSPLATS;
 
+@Singleton
 public class CombatLoggerPanel extends PluginPanel
 {
 	private final Client client;
@@ -125,7 +127,7 @@ public class CombatLoggerPanel extends PluginPanel
 		damageMeterPanel.add(drillDownPanel, "drilldown");
 
 		showOverviewPanel();
-		add(damageMeterPanel);
+		add(damageMeterPanel, BorderLayout.EAST); // Adjusted layout positions to accommodate new components
 	}
 
 	public void onGameTick(GameTick event)
@@ -268,6 +270,15 @@ public class CombatLoggerPanel extends PluginPanel
 		playerStatsList.sort(Comparator.comparingInt(PlayerStats::getDamage).reversed());
 
 		return playerStatsList;
+	}
+
+	public synchronized Fight getLastFight()
+	{
+		if (!fights.isEmpty())
+		{
+			return fights.peekLast();
+		}
+		return null;
 	}
 
 	public void clearFights()

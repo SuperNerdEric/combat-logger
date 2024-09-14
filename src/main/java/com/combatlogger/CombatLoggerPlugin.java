@@ -1,6 +1,7 @@
 package com.combatlogger;
 
 import com.combatlogger.model.logs.*;
+import com.combatlogger.overlay.DamageOverlay;
 import com.combatlogger.panel.CombatLoggerPanel;
 import com.combatlogger.util.AnimationIds;
 import com.google.inject.Provides;
@@ -26,6 +27,7 @@ import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.util.ImageUtil;
+import net.runelite.client.ui.overlay.OverlayManager;
 
 
 import javax.inject.Inject;
@@ -114,6 +116,12 @@ public class CombatLoggerPlugin extends Plugin
 	@Inject
 	private PartyService party;
 
+	@Inject
+	private OverlayManager overlayManager;
+
+	@Inject
+	private DamageOverlay damageOverlay;
+
 	private CombatLoggerPanel panel;
 
 	private NavigationButton navButton;
@@ -154,6 +162,7 @@ public class CombatLoggerPlugin extends Plugin
 		boostedCombatStats = new BoostedCombatStats(client);
 		createLogFile();
 		wsClient.registerMessage(DamageMessage.class);
+		overlayManager.add(damageOverlay);
 	}
 
 	@Override
@@ -166,6 +175,9 @@ public class CombatLoggerPlugin extends Plugin
 		clientToolbar.removeNavigation(navButton);
 		panel = null;
 		logQueueManager.shutDown(eventBus);
+		damageOverlay.clearCaches();
+		overlayManager.remove(damageOverlay);
+
 	}
 
 	@Subscribe
