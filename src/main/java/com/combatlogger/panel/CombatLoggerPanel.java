@@ -127,7 +127,7 @@ public class CombatLoggerPanel extends PluginPanel
 		damageMeterPanel.add(drillDownPanel, "drilldown");
 
 		showOverviewPanel();
-		add(damageMeterPanel, BorderLayout.EAST); // Adjusted layout positions to accommodate new components
+		add(damageMeterPanel);
 	}
 
 	public void onGameTick(GameTick event)

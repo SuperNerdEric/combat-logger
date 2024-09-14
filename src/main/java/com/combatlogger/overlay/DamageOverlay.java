@@ -188,7 +188,7 @@ public class DamageOverlay extends OverlayPanel {
                 // Draw the avatar image
                 graphics.drawImage(avatarImage, avatarX, avatarY, null);
             } else {
-                // Draw an empty square or fill it with a neutral color, adjusted for border
+                // Draw an empty square and fill it
                 graphics.setColor(new Color(70, 70, 70, overlayAlpha)); // Adjusted transparency
                 graphics.fillRect(avatarX + 1, avatarY + 1, avatarSize - 2, avatarSize - 2); // Reduced size and shifted position
 
@@ -225,7 +225,7 @@ public class DamageOverlay extends OverlayPanel {
             int nameTextY = yPosition + ((barHeight - barMetrics.getHeight()) / 2) + barMetrics.getAscent();
 
             // **Updated text format to include DPS with two decimal places and ensure right alignment**
-            String dpsText = String.format("(%.2f, %.1f%%)", dps, percentDamage); // Changed from %.1f to %.2f
+            String dpsText = String.format("(%.2f, %.1f%%)", dps, percentDamage);
             String damageText = String.format("%d %s", damage, dpsText);
 
             // Calculate the width of the damage and DPS text to right-align it
@@ -251,6 +251,5 @@ public class DamageOverlay extends OverlayPanel {
     public void clearCaches() {
         playerColors.clear();
         avatarCache.clear();
-        System.out.println("Caches cleared."); // Optional: For debugging purposes
     }
 }
