@@ -1,5 +1,6 @@
 package com.combatlogger;
 
+import com.combatlogger.model.Fight;
 import com.combatlogger.model.logs.*;
 import com.combatlogger.overlay.DamageOverlay;
 import com.combatlogger.panel.CombatLoggerPanel;
@@ -8,6 +9,8 @@ import com.google.inject.Provides;
 import lombok.Getter;
 import com.combatlogger.messages.DamageMessage;
 import net.runelite.api.*;
+import net.runelite.api.Menu;
+import net.runelite.api.Point;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.*;
@@ -28,13 +31,16 @@ import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.util.ImageUtil;
 import net.runelite.client.ui.overlay.OverlayManager;
-
+import org.apache.commons.lang3.ArrayUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -52,6 +58,7 @@ public class CombatLoggerPlugin extends Plugin
 	public static final File DIRECTORY;
 	private static final String LOG_FILE_NAME = "combat_log";
 	public static File LOG_FILE;
+	private static final Logger log = LoggerFactory.getLogger(CombatLoggerPlugin.class); //REMOVE BEFORE FINISHING
 
 	private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("MM-dd-yyyy HH:mm:ss", Locale.ENGLISH);
 	private static final Pattern ENCOUNTER_PATTERN = Pattern.compile("(Wave|Duration|Challenge)", Pattern.CASE_INSENSITIVE);
@@ -88,6 +95,8 @@ public class CombatLoggerPlugin extends Plugin
 	private Set<Integer> playerAnimationChanges = new HashSet<>();
 	private int regionId = -1;
 
+	private javax.swing.Timer overlayTimeout = null;
+
 	@Inject
 	private Client client;
 
@@ -103,6 +112,9 @@ public class CombatLoggerPlugin extends Plugin
 
 	@Inject
 	private LogQueueManager logQueueManager;
+
+	@Inject
+	private FightManager fightManager;
 
 	@Inject
 	private ClientToolbar clientToolbar;
@@ -162,7 +174,15 @@ public class CombatLoggerPlugin extends Plugin
 		boostedCombatStats = new BoostedCombatStats(client);
 		createLogFile();
 		wsClient.registerMessage(DamageMessage.class);
-		overlayManager.add(damageOverlay);
+
+		if(config.enableOverlay()){
+			//this should create new instances and pass configs etc so we can support multiple overlays in the future
+			overlayManager.add(damageOverlay);
+
+			//todo move to "combat start" when fight manager is done, remember to reset etc
+			overlayTimeout = new javax.swing.Timer(config.overlayTimeout() * 60 * 1000 , _ev -> removeOverlay());
+			overlayTimeout.start();
+		}
 	}
 
 	@Override
@@ -175,8 +195,7 @@ public class CombatLoggerPlugin extends Plugin
 		clientToolbar.removeNavigation(navButton);
 		panel = null;
 		logQueueManager.shutDown(eventBus);
-		damageOverlay.clearCaches();
-		overlayManager.remove(damageOverlay);
+		removeOverlay();
 
 	}
 
@@ -556,6 +575,74 @@ public class CombatLoggerPlugin extends Plugin
 					)
 			);
 		}
+	}
+
+	public void removeOverlay(){
+		damageOverlay.clearCaches();
+		overlayManager.removeIf(e -> e instanceof DamageOverlay);
+	}
+
+	@Subscribe
+	public void onMenuOpened(MenuOpened event) {
+		Point mousePosition = client.getMouseCanvasPosition();
+		var overlayBounds = damageOverlay.getBounds();
+
+		if (overlayBounds.contains(mousePosition.getX(), mousePosition.getY())) {
+			// Get existing menu entries
+			MenuEntry[] existingEntries = event.getMenuEntries();
+			MenuEntry[] newEntries = new MenuEntry[4];
+
+			newEntries[3] = client.createMenuEntry(-5)
+					.setOption("End Current Fight")
+					.setTarget("")
+					.setType(MenuAction.RUNELITE)
+					.onClick((me) -> panel.endCurrentFight());
+
+			newEntries[2] = client.createMenuEntry(-4)
+					.setOption("Clear All Fights")
+					.setTarget("")
+					.setType(MenuAction.RUNELITE)
+					.onClick((me) -> panel.clearFights());
+
+			newEntries[1] = client.createMenuEntry(-3)
+					.setOption("Hide Overlay")
+					.setTarget("")
+					.setType(MenuAction.RUNELITE)
+					.onClick((me) -> overlayManager.remove(damageOverlay));
+
+			var fights = panel.getFights();
+
+			MenuEntry selectFightEntry = null;
+			if(fights != null){
+				// Reverse order so the newest fights are first
+
+				// Create your main menu entry
+				selectFightEntry = client.createMenuEntry(-2)
+						.setTarget("Select Fight") // You can set a target if needed
+						.setType(MenuAction.RUNELITE)
+						.setDeprioritized(true);
+
+				// Create a submenu for the "Select Fight" entry
+				Menu submenu = selectFightEntry.createSubMenu();
+				Iterator<Fight> iterator = fights.descendingIterator();
+
+				int i = -1;
+				while (iterator.hasNext())
+				{
+					Fight fight = iterator.next(); // Store the result of next() once
+					submenu.createMenuEntry(i)
+							.setTarget(fight.getFightName() + " (" + Fight.formatTime(fight.getFightLengthTicks()) + ")")
+							.setType(MenuAction.RUNELITE)
+							.onClick((e) -> panel.setPanelCurrentFight(fight)); // Use the stored fight
+					i--;
+				}
+				newEntries[0] = selectFightEntry;
+			}
+
+			// Add the main menu entry to the menu
+			client.setMenuEntries(ArrayUtils.addAll(existingEntries, newEntries));
+		}
+
 	}
 
 	@Subscribe

@@ -21,11 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import net.runelite.api.*;
-import net.runelite.api.Menu;
 import net.runelite.api.Point;
-import net.runelite.api.events.ClientTick;
-import net.runelite.api.events.MenuOpened;
-import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.party.PartyService;
 import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.overlay.OverlayLayer;
@@ -35,11 +31,8 @@ import net.runelite.client.party.PartyMember;
 import net.runelite.client.ui.overlay.tooltip.Tooltip;
 import net.runelite.client.ui.overlay.tooltip.TooltipManager;
 import net.runelite.client.util.ImageUtil;
-import org.apache.commons.lang3.ArrayUtils;
-
 import static net.runelite.api.MenuAction.*;
 import static net.runelite.client.ui.overlay.OverlayManager.OPTION_CONFIGURE;
-import static org.apache.commons.lang3.time.DurationFormatUtils.formatDuration;
 
 public class DamageOverlay extends OverlayPanel {
     private static final Logger log = LoggerFactory.getLogger(DamageOverlay.class); //REMOVE BEFORE FINISHING
@@ -74,16 +67,6 @@ public class DamageOverlay extends OverlayPanel {
     };
     private int colorIndex = 0;
 
-    // Define separate transparency factors
-    private static final double TRANSPARENCY_FACTOR_OVERLAY = 0.6;      // 60% of original
-    private static final double TRANSPARENCY_FACTOR_HEADER = 0.95;      // 5% increase in transparency (more transparent)
-    private static final double TRANSPARENCY_FACTOR_BAR = 1.10;         // 10% decrease in transparency (less transparent)
-
-    // Original alpha values
-    private static final int ORIGINAL_OVERLAY_ALPHA = 200;
-    private static final int ORIGINAL_HEADER_ALPHA = 220;
-    private static final int ORIGINAL_DAMAGE_BAR_ALPHA = 150;
-
     //image paths
     static final String IMAGE_DEFAULT_AVATAR_PATH = "/default_avatar.png";
     static final String IMAGE_SETTINGS_PATH = "/settings.png";
@@ -108,11 +91,7 @@ public class DamageOverlay extends OverlayPanel {
         this.setMovable(true);
 
         //menu entries
-        this.addMenuEntry(RUNELITE_OVERLAY, "", "End Current Fight", (me) -> this.endCurrentFight());
-        this.addMenuEntry(RUNELITE_OVERLAY, "", "Clear All Fights", (me) -> this.clear());
         this.addMenuEntry(RUNELITE_OVERLAY_CONFIG, OPTION_CONFIGURE, "Combat Logger Settings");
-        //this.addMenuEntry(RUNELITE_LOW_PRIORITY, "Select Fight", "DAMAGE_OVERLAY_FIGHT_SUBMENU");
-        //this.addMenuEntry(RUNELITE_OVERLAY, "Hide Overlay", "Overlay", (me) -> this.clear());
 
         defaultAvatar = loadImage(IMAGE_DEFAULT_AVATAR_PATH);
         //the actual icon should likely be scaled instead of resizing.
@@ -153,16 +132,6 @@ public class DamageOverlay extends OverlayPanel {
         int totalDamage = playerStats.stream().mapToInt(PlayerStats::getDamage).sum();
         int maxDamage = playerStats.stream().mapToInt(PlayerStats::getDamage).max().orElse(1); // Avoid division by zero
 
-        // Calculate adjusted alpha values with separate transparency factors
-        int overlayAlpha = (int) (ORIGINAL_OVERLAY_ALPHA * TRANSPARENCY_FACTOR_OVERLAY);      // 200 * 0.6 = 120
-        int headerAlpha = (int) (ORIGINAL_HEADER_ALPHA * TRANSPARENCY_FACTOR_HEADER);        // 220 * 0.95 = 209
-        int damageBarAlpha = (int) (ORIGINAL_DAMAGE_BAR_ALPHA * TRANSPARENCY_FACTOR_BAR);    // 150 * 1.10 = 165
-
-        // Clamp alpha values during testing because i'm dumb
-        overlayAlpha = Math.min(Math.max(overlayAlpha, 0), 255);
-        headerAlpha = Math.min(Math.max(headerAlpha, 0), 255);
-        damageBarAlpha = Math.min(Math.max(damageBarAlpha, 0), 255);
-
         graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
@@ -176,20 +145,12 @@ public class DamageOverlay extends OverlayPanel {
         int totalHeight = headerHeight + (playerStats.size() * (barHeight + spacing));
 
         // Draw the background for the entire overlay with adjusted transparency
-        graphics.setColor(new Color(50, 50, 50, overlayAlpha)); // Semi-transparent gray background
+        graphics.setColor(new Color(50, 50, 50, 120)); // Semi-transparent gray background
         graphics.fillRect(0, 0, overlayWidth, totalHeight);
 
         // Draw the header background with adjusted transparency
-        graphics.setColor(new Color(30, 30, 30, headerAlpha)); // Slightly darker semi-transparent background
+        graphics.setColor(new Color(30, 30, 30, 209)); // Slightly darker semi-transparent background
         graphics.fillRect(0, 0, overlayWidth, headerHeight);
-
-        // Position the header text vertically centered
-        int headerTextY = (headerHeight - headerMetrics.getHeight()) / 2 + headerMetrics.getAscent();
-
-        // Draw the header text
-        graphics.setColor(Color.WHITE);
-        graphics.drawString("Damage Done: " + fightName, 2, headerTextY); // Slight offset for readability
-
 
         // Position the settings icon in the header
         Rectangle settingsIconBounds = null;
@@ -208,15 +169,26 @@ public class DamageOverlay extends OverlayPanel {
 
             if (settingsIconBounds.contains(mousePosition.getX(), mousePosition.getY()))
             {
-                tooltipManager.add(new Tooltip("Shift -> Right click to see settings"));
+                tooltipManager.add(new Tooltip("Shift -> Right click for Damage Overlay settings"));
             }
         }
-
-        yPosition = headerHeight + spacing;
 
         // Prepare font and metrics for bars
         graphics.setFont(FontManager.getRunescapeSmallFont());
         FontMetrics barMetrics = graphics.getFontMetrics();
+
+        int availableFightNameWidth = overlayWidth - settingsIcon.getWidth() - 6; //6 for padding
+        String truncatedFightName = truncateText("Damage Done: " + fightName, barMetrics, availableFightNameWidth);
+
+        // Position the header text vertically centered
+        int headerTextY = (headerHeight - headerMetrics.getHeight()) / 2 + headerMetrics.getAscent();
+
+        // Draw the header text
+        graphics.setColor(Color.WHITE);
+        graphics.drawString(truncatedFightName, 3, headerTextY); // Slight offset for readability
+
+        yPosition = headerHeight + spacing;
+
 
         // Render each damage bar
         for (PlayerStats stats : playerStats) {
@@ -264,11 +236,11 @@ public class DamageOverlay extends OverlayPanel {
             int barX = avatarSize; // Bar starts immediately after avatar
             int textX = barX + 5;
 
-            graphics.setColor(new Color(70, 70, 70, overlayAlpha));
+            graphics.setColor(new Color(70, 70, 70, 120));
             graphics.fillRect(barX, yPosition, overlayWidth - avatarSize, barHeight);
 
             // Draw damage bar with adjusted transparency
-            Color semiTransparentPlayerColor = new Color(playerColor.getRed(), playerColor.getGreen(), playerColor.getBlue(), damageBarAlpha);
+            Color semiTransparentPlayerColor = new Color(playerColor.getRed(), playerColor.getGreen(), playerColor.getBlue(), 165);
             graphics.setColor(semiTransparentPlayerColor);
             graphics.fillRect(barX, yPosition, barLength, barHeight);
 
@@ -335,55 +307,33 @@ public class DamageOverlay extends OverlayPanel {
 
     }
 
-    @Subscribe
-    public void onMenuOpened(MenuOpened event) {
-        System.out.println("MenuOpened event triggered");
-        Point mousePosition = client.getMouseCanvasPosition();
-        Rectangle overlayBounds = this.getBounds();
-
-        System.out.println("Mouse Position: " + mousePosition);
-        System.out.println("Overlay Bounds: " + overlayBounds);
-
-        if (overlayBounds.contains(mousePosition.getX(), mousePosition.getY())) {
-            System.out.println("Mouse is over overlay");
-            // Proceed to add custom menu entries
-        } else {
-            System.out.println("Mouse is NOT over overlay");
+    /**
+     * Truncates the given text and appends an ellipsis if it exceeds the maxWidth.
+     *
+     * @param text      The original text to potentially truncate.
+     * @param fm        The FontMetrics object for measuring text width.
+     * @param maxWidth  The maximum allowed width for the text.
+     * @return          The original or truncated text with an ellipsis.
+     */
+    private String truncateText(String text, FontMetrics fm, int maxWidth) {
+        if (fm.stringWidth(text) <= maxWidth) {
+            return text;
         }
 
-        if (overlayBounds.contains(mousePosition.getX(), mousePosition.getY())) {
-            // Get existing menu entries
-            MenuEntry[] entries = event.getMenuEntries();
+        String ellipsis = "...";
+        int ellipsisWidth = fm.stringWidth(ellipsis);
+        int availableWidth = maxWidth - ellipsisWidth;
 
-            // Create your main menu entry
-            MenuEntry selectFightEntry = client.createMenuEntry(-1)
-                    .setOption("Select Fight")
-                    .setTarget("") // You can set a target if needed
-                    .setType(MenuAction.RUNELITE)
-                    .setDeprioritized(true); // To prevent interfering with game interactions
-
-            // Create a submenu for the "Select Fight" entry
-            Menu submenu = selectFightEntry.createSubMenu();
-
-            // Add submenu entries
-            submenu.createMenuEntry(0)
-                    .setOption("Fight One")
-                    .setType(MenuAction.RUNELITE)
-                    .onClick((e) -> this.selectFight("Fight One"));
-
-            submenu.createMenuEntry(1)
-                    .setOption("Fight Two")
-                    .setType(MenuAction.RUNELITE)
-                    .onClick((e) -> this.selectFight("Fight Two"));
-
-            submenu.createMenuEntry(2)
-                    .setOption("Fight Three")
-                    .setType(MenuAction.RUNELITE)
-                    .onClick((e) -> this.selectFight("Fight Three"));
-
-            // Add the main menu entry to the menu
-            client.setMenuEntries(ArrayUtils.addAll(entries, selectFightEntry));
+        if (availableWidth <= 0) {
+            return ellipsis; // Not enough space to display any part of the text
         }
+
+        int len = text.length();
+        while (len > 0 && fm.stringWidth(text.substring(0, len)) > availableWidth) {
+            len--;
+        }
+
+        return text.substring(0, len) + ellipsis;
     }
 
     /**
