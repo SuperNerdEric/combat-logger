@@ -4,30 +4,56 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.imageio.ImageIO;
 import javax.inject.Inject;
 
 import com.combatlogger.CombatLoggerConfig;
+import com.combatlogger.CombatLoggerPlugin;
 import com.combatlogger.model.Fight;
 import com.combatlogger.panel.CombatLoggerPanel;
 import com.combatlogger.panel.PlayerStats;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import net.runelite.api.*;
+import net.runelite.api.Menu;
+import net.runelite.api.Point;
+import net.runelite.api.events.ClientTick;
+import net.runelite.api.events.MenuOpened;
+import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.party.PartyService;
 import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPanel;
 import net.runelite.client.ui.overlay.OverlayPosition;
 import net.runelite.client.party.PartyMember;
+import net.runelite.client.ui.overlay.tooltip.Tooltip;
+import net.runelite.client.ui.overlay.tooltip.TooltipManager;
 import net.runelite.client.util.ImageUtil;
+import org.apache.commons.lang3.ArrayUtils;
+
+import static net.runelite.api.MenuAction.*;
+import static net.runelite.client.ui.overlay.OverlayManager.OPTION_CONFIGURE;
+import static org.apache.commons.lang3.time.DurationFormatUtils.formatDuration;
 
 public class DamageOverlay extends OverlayPanel {
+    private static final Logger log = LoggerFactory.getLogger(DamageOverlay.class); //REMOVE BEFORE FINISHING
+    private final CombatLoggerPlugin combatLoggerPlugin;
     private final CombatLoggerPanel combatLoggerPanel;
     private final PartyService partyService;
     private final CombatLoggerConfig config;
+    private final Client client;
+    private final TooltipManager tooltipManager;
+
+
     private BufferedImage defaultAvatar;
+    private BufferedImage settingsIcon;
+
 
     private final Map<String, BufferedImage> avatarCache = new ConcurrentHashMap<>();
     private final Map<String, Color> playerColors = new ConcurrentHashMap<>();
@@ -58,17 +84,40 @@ public class DamageOverlay extends OverlayPanel {
     private static final int ORIGINAL_HEADER_ALPHA = 220;
     private static final int ORIGINAL_DAMAGE_BAR_ALPHA = 150;
 
+    //image paths
+    static final String IMAGE_DEFAULT_AVATAR_PATH = "/default_avatar.png";
+    static final String IMAGE_SETTINGS_PATH = "/settings.png";
+
+
     @Inject
-    public DamageOverlay(CombatLoggerPanel combatLoggerPanel, CombatLoggerConfig config, PartyService partyService) {
-        this.combatLoggerPanel = combatLoggerPanel;
+    public DamageOverlay(CombatLoggerPlugin plugin, CombatLoggerPanel panel, Client client, CombatLoggerConfig config, PartyService partyService, TooltipManager tooltipManager) {
+        super(plugin);
+
+        log.info("Building Overlay");
+        setPosition(OverlayPosition.ABOVE_CHATBOX_RIGHT);
+        setLayer(OverlayLayer.UNDER_WIDGETS);
+
+        this.combatLoggerPlugin = plugin;
+        this.combatLoggerPanel = panel;
         this.config = config;
         this.partyService = partyService;
+        this.tooltipManager = tooltipManager;
+        this.client = client;
 
-        setPosition(OverlayPosition.BOTTOM_RIGHT);
-        setLayer(OverlayLayer.ABOVE_WIDGETS);
+        this.setResizable(true);
+        this.setMovable(true);
 
-        setMovable(true);
-        loadDefaultAvatar();
+        //menu entries
+        this.addMenuEntry(RUNELITE_OVERLAY, "", "End Current Fight", (me) -> this.endCurrentFight());
+        this.addMenuEntry(RUNELITE_OVERLAY, "", "Clear All Fights", (me) -> this.clear());
+        this.addMenuEntry(RUNELITE_OVERLAY_CONFIG, OPTION_CONFIGURE, "Combat Logger Settings");
+        //this.addMenuEntry(RUNELITE_LOW_PRIORITY, "Select Fight", "DAMAGE_OVERLAY_FIGHT_SUBMENU");
+        //this.addMenuEntry(RUNELITE_OVERLAY, "Hide Overlay", "Overlay", (me) -> this.clear());
+
+        defaultAvatar = loadImage(IMAGE_DEFAULT_AVATAR_PATH);
+        //the actual icon should likely be scaled instead of resizing.
+        //I still need to test scaling and resizing across the various settings so leaving as is for now.
+        settingsIcon = loadImage(IMAGE_SETTINGS_PATH);
     }
 
     @Override
@@ -94,6 +143,7 @@ public class DamageOverlay extends OverlayPanel {
         String fightName = lastFight.getFightName();
 
         // Rendering parameters
+        final Rectangle overlayBounds = this.getBounds();
         final int barHeight = 20;
         final int avatarSize = barHeight; // Avatar is the same height as the bar
         final int spacing = 0; // Remove all padding between bars
@@ -135,12 +185,32 @@ public class DamageOverlay extends OverlayPanel {
 
         // Position the header text vertically centered
         int headerTextY = (headerHeight - headerMetrics.getHeight()) / 2 + headerMetrics.getAscent();
-        // Slight adjustment for better centering
-        headerTextY += 1;
 
         // Draw the header text
         graphics.setColor(Color.WHITE);
         graphics.drawString("Damage Done: " + fightName, 2, headerTextY); // Slight offset for readability
+
+
+        // Position the settings icon in the header
+        Rectangle settingsIconBounds = null;
+        if (settingsIcon != null) {
+            int settingsIconX = overlayWidth - settingsIcon.getWidth() - 2; // 5px padding from the right
+            int settingsIconY = (headerHeight - settingsIcon.getHeight()) / 2; // Vertically center the icon
+            graphics.drawImage(settingsIcon, settingsIconX, settingsIconY, null);
+
+            // Calculate global coordinates by adding overlay's top-left corner
+            int globalSettingsIconX = overlayBounds.x + settingsIconX;
+            int globalSettingsIconY = overlayBounds.y + settingsIconY;
+
+            settingsIconBounds = new Rectangle(globalSettingsIconX, globalSettingsIconY, settingsIcon.getWidth(), settingsIcon.getHeight());
+
+            final Point mousePosition = client.getMouseCanvasPosition();
+
+            if (settingsIconBounds.contains(mousePosition.getX(), mousePosition.getY()))
+            {
+                tooltipManager.add(new Tooltip("Shift -> Right click to see settings"));
+            }
+        }
 
         yPosition = headerHeight + spacing;
 
@@ -157,8 +227,7 @@ public class DamageOverlay extends OverlayPanel {
                 percentDamage = ((double) damage / totalDamage) * 100;
             }
 
-            // **Assuming we have DPS value from PlayerStats**
-            double dps = stats.getDps(); // Obtain DPS value
+            double dps = stats.getDps();
 
             // Calculate bar length proportionally
             int barLength = (int) ((double) damage / maxDamage * (overlayWidth - avatarSize));
@@ -188,25 +257,7 @@ public class DamageOverlay extends OverlayPanel {
             int avatarY = yPosition; // Align avatar with the top of the bar
 
             if (avatarImage != null) {
-                // Draw the avatar image
                 graphics.drawImage(avatarImage, avatarX, avatarY, null);
-            } else {
-                // Draw an empty square and fill it
-                graphics.setColor(new Color(70, 70, 70, overlayAlpha)); // Adjusted transparency
-                graphics.fillRect(avatarX + 1, avatarY + 1, avatarSize - 2, avatarSize - 2); // Reduced size and shifted position
-
-                // Save the original stroke
-                Stroke originalStroke = graphics.getStroke();
-
-                // Set stroke for the border
-                graphics.setStroke(new BasicStroke(1)); // 1-pixel border
-
-                // Draw a 1-pixel border inside the filled rectangle
-                graphics.setColor(Color.DARK_GRAY);
-                graphics.drawRect(avatarX, avatarY, avatarSize - 1, avatarSize - 1); // Border within avatarSize
-
-                // Restore the original stroke
-                graphics.setStroke(originalStroke);
             }
 
             // Adjust positions
@@ -226,7 +277,6 @@ public class DamageOverlay extends OverlayPanel {
             String nameText = playerName;
             int nameTextY = yPosition + ((barHeight - barMetrics.getHeight()) / 2) + barMetrics.getAscent();
 
-            // **Updated text format to include DPS with two decimal places and ensure right alignment**
             String dpsText = String.format("(%.2f, %.1f%%)", dps, percentDamage);
             String damageText = String.format("%d %s", damage, dpsText);
 
@@ -249,15 +299,15 @@ public class DamageOverlay extends OverlayPanel {
 
         //eventually should be super.render(graphics); as per convention, but that's preventing moving atm
         return new Dimension(overlayWidth, totalHeight);
+
+        //return super.render(graphics);
     }
 
-    /**
-     * Load the default avatar image from the resources.
-     */
-    private void loadDefaultAvatar() {
-        try (InputStream is = getClass().getResourceAsStream("/default_avatar.png")) {
+    private BufferedImage loadImage(String path) {
+        BufferedImage image = null;
+        try (InputStream is = getClass().getResourceAsStream(path)) {
             if (is != null) {
-                defaultAvatar = ImageIO.read(is);
+                image = ImageIO.read(is);
             } else {
                 System.err.println("Default avatar image not found.");
             }
@@ -265,6 +315,74 @@ public class DamageOverlay extends OverlayPanel {
         //runelite may have its own way of doing this - investigate around
         catch (IOException e) {
             e.printStackTrace();
+        }
+        return image;
+    }
+
+    /**
+     * Menu Options
+     */
+    public void clear() {
+        //todo
+    }
+    public void endCurrentFight() {
+        //todo
+    }
+    public void hideOverlay() {
+        //todo
+    }
+    public void selectFight(String fight){
+
+    }
+
+    @Subscribe
+    public void onMenuOpened(MenuOpened event) {
+        System.out.println("MenuOpened event triggered");
+        Point mousePosition = client.getMouseCanvasPosition();
+        Rectangle overlayBounds = this.getBounds();
+
+        System.out.println("Mouse Position: " + mousePosition);
+        System.out.println("Overlay Bounds: " + overlayBounds);
+
+        if (overlayBounds.contains(mousePosition.getX(), mousePosition.getY())) {
+            System.out.println("Mouse is over overlay");
+            // Proceed to add custom menu entries
+        } else {
+            System.out.println("Mouse is NOT over overlay");
+        }
+
+        if (overlayBounds.contains(mousePosition.getX(), mousePosition.getY())) {
+            // Get existing menu entries
+            MenuEntry[] entries = event.getMenuEntries();
+
+            // Create your main menu entry
+            MenuEntry selectFightEntry = client.createMenuEntry(-1)
+                    .setOption("Select Fight")
+                    .setTarget("") // You can set a target if needed
+                    .setType(MenuAction.RUNELITE)
+                    .setDeprioritized(true); // To prevent interfering with game interactions
+
+            // Create a submenu for the "Select Fight" entry
+            Menu submenu = selectFightEntry.createSubMenu();
+
+            // Add submenu entries
+            submenu.createMenuEntry(0)
+                    .setOption("Fight One")
+                    .setType(MenuAction.RUNELITE)
+                    .onClick((e) -> this.selectFight("Fight One"));
+
+            submenu.createMenuEntry(1)
+                    .setOption("Fight Two")
+                    .setType(MenuAction.RUNELITE)
+                    .onClick((e) -> this.selectFight("Fight Two"));
+
+            submenu.createMenuEntry(2)
+                    .setOption("Fight Three")
+                    .setType(MenuAction.RUNELITE)
+                    .onClick((e) -> this.selectFight("Fight Three"));
+
+            // Add the main menu entry to the menu
+            client.setMenuEntries(ArrayUtils.addAll(entries, selectFightEntry));
         }
     }
 
