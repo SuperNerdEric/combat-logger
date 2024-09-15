@@ -94,10 +94,7 @@ public class CombatLoggerPanel extends PluginPanel
 		{
 			if (isConfirmed("Are you sure you want to end the current fight?", "End fight"))
 			{
-				if (!fights.isEmpty() && !fights.peekLast().isOver())
-				{
-					fights.peekLast().setOver(true);
-				}
+				endCurrentFight();
 			}
 		});
 		JPanel fightsPanel = new JPanel(new BorderLayout());
@@ -115,8 +112,7 @@ public class CombatLoggerPanel extends PluginPanel
 			selectedFight = (Fight) fightsComboBox.getSelectedItem();
 			if (selectedFight != null)
 			{
-				List<PlayerStats> playerStats = getPlayerDamageForFight(selectedFight);
-				updateOverviewPanel(playerStats);
+				setPanelCurrentFight(selectedFight);
 			}
 		});
 
@@ -279,6 +275,18 @@ public class CombatLoggerPanel extends PluginPanel
 			return fights.peekLast();
 		}
 		return null;
+	}
+
+	public void endCurrentFight(){
+		if (!fights.isEmpty() && !fights.peekLast().isOver())
+		{
+			fights.peekLast().setOver(true);
+		}
+	}
+
+	public void setPanelCurrentFight(Fight currentFight){
+		List<PlayerStats> playerStats = getPlayerDamageForFight(selectedFight);
+		updateOverviewPanel(playerStats);
 	}
 
 	public void clearFights()
