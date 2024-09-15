@@ -2,9 +2,12 @@ package com.combatlogger.overlay;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import javax.imageio.ImageIO;
 import javax.inject.Inject;
 
 import com.combatlogger.CombatLoggerConfig;
@@ -24,6 +27,7 @@ public class DamageOverlay extends OverlayPanel {
     private final CombatLoggerPanel combatLoggerPanel;
     private final PartyService partyService;
     private final CombatLoggerConfig config;
+    private BufferedImage defaultAvatar;
 
     private final Map<String, BufferedImage> avatarCache = new ConcurrentHashMap<>();
     private final Map<String, Color> playerColors = new ConcurrentHashMap<>();
@@ -59,15 +63,23 @@ public class DamageOverlay extends OverlayPanel {
         this.combatLoggerPanel = combatLoggerPanel;
         this.config = config;
         this.partyService = partyService;
-        // Set position and layer
-        setPosition(OverlayPosition.DYNAMIC);
+
+        setPosition(OverlayPosition.BOTTOM_RIGHT);
         setLayer(OverlayLayer.ABOVE_WIDGETS);
 
         setMovable(true);
+        loadDefaultAvatar();
     }
 
     @Override
     public Dimension render(Graphics2D graphics) {
+
+        // Get the current overlay size
+        Dimension currentSize = panelComponent.getPreferredSize();
+        if (currentSize == null || currentSize.width == 0 || currentSize.height == 0) {
+            currentSize = new Dimension(250, 150); // Default size
+        }
+
         Fight lastFight = combatLoggerPanel.getLastFight();
         if (lastFight == null) {
             return null; // No fight data available
@@ -79,21 +91,16 @@ public class DamageOverlay extends OverlayPanel {
             return null; // No player stats to display
         }
 
-        // Get the fight name (enemy name)
         String fightName = lastFight.getFightName();
 
         // Rendering parameters
         final int barHeight = 20;
         final int avatarSize = barHeight; // Avatar is the same height as the bar
-        final int barWidth = 200;
         final int spacing = 0; // Remove all padding between bars
         int yPosition = 0;
-        int overlayWidth = avatarSize + barWidth;
+        int overlayWidth = currentSize.width;
 
-        // Calculate total damage
         int totalDamage = playerStats.stream().mapToInt(PlayerStats::getDamage).sum();
-
-        // Calculate maxDamage
         int maxDamage = playerStats.stream().mapToInt(PlayerStats::getDamage).max().orElse(1); // Avoid division by zero
 
         // Calculate adjusted alpha values with separate transparency factors
@@ -101,21 +108,18 @@ public class DamageOverlay extends OverlayPanel {
         int headerAlpha = (int) (ORIGINAL_HEADER_ALPHA * TRANSPARENCY_FACTOR_HEADER);        // 220 * 0.95 = 209
         int damageBarAlpha = (int) (ORIGINAL_DAMAGE_BAR_ALPHA * TRANSPARENCY_FACTOR_BAR);    // 150 * 1.10 = 165
 
-        // Clamp alpha values to ensure they are within 0-255
+        // Clamp alpha values during testing because i'm dumb
         overlayAlpha = Math.min(Math.max(overlayAlpha, 0), 255);
         headerAlpha = Math.min(Math.max(headerAlpha, 0), 255);
         damageBarAlpha = Math.min(Math.max(damageBarAlpha, 0), 255);
 
-        // Enable anti-aliasing for smoother graphics
         graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        // Enable text anti-aliasing for smoother text
         graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
         // Set OSRS font for the header
         graphics.setFont(FontManager.getRunescapeSmallFont());
         FontMetrics headerMetrics = graphics.getFontMetrics();
 
-        // Set the header height to be the same as the bar height
         int headerHeight = barHeight;
 
         // Calculate the total height of the overlay
@@ -138,7 +142,6 @@ public class DamageOverlay extends OverlayPanel {
         graphics.setColor(Color.WHITE);
         graphics.drawString("Damage Done: " + fightName, 2, headerTextY); // Slight offset for readability
 
-        // Update yPosition to start drawing bars below the header
         yPosition = headerHeight + spacing;
 
         // Prepare font and metrics for bars
@@ -158,7 +161,7 @@ public class DamageOverlay extends OverlayPanel {
             double dps = stats.getDps(); // Obtain DPS value
 
             // Calculate bar length proportionally
-            int barLength = (int) ((double) damage / maxDamage * barWidth);
+            int barLength = (int) ((double) damage / maxDamage * (overlayWidth - avatarSize));
 
             // Assign a color to the player if not already assigned
             Color playerColor = playerColors.get(playerName);
@@ -175,7 +178,7 @@ public class DamageOverlay extends OverlayPanel {
                 if (partyMember != null && partyMember.getAvatar() != null) {
                     avatarImage = ImageUtil.resizeImage(partyMember.getAvatar(), avatarSize, avatarSize);
                 } else {
-                    avatarImage = null; // No avatar available
+                    avatarImage = ImageUtil.resizeImage(defaultAvatar, avatarSize, avatarSize);
                 }
                 avatarCache.put(playerName, avatarImage);
             }
@@ -210,9 +213,8 @@ public class DamageOverlay extends OverlayPanel {
             int barX = avatarSize; // Bar starts immediately after avatar
             int textX = barX + 5;
 
-            // Draw background bar with adjusted transparency
             graphics.setColor(new Color(70, 70, 70, overlayAlpha));
-            graphics.fillRect(barX, yPosition, barWidth, barHeight);
+            graphics.fillRect(barX, yPosition, overlayWidth - avatarSize, barHeight);
 
             // Draw damage bar with adjusted transparency
             Color semiTransparentPlayerColor = new Color(playerColor.getRed(), playerColor.getGreen(), playerColor.getBlue(), damageBarAlpha);
@@ -242,7 +244,28 @@ public class DamageOverlay extends OverlayPanel {
             yPosition += barHeight + spacing;
         }
 
+        // Set the preferred size dynamically based on the current size
+        panelComponent.setPreferredSize(new Dimension(overlayWidth, totalHeight));
+
+        //eventually should be super.render(graphics); as per convention, but that's preventing moving atm
         return new Dimension(overlayWidth, totalHeight);
+    }
+
+    /**
+     * Load the default avatar image from the resources.
+     */
+    private void loadDefaultAvatar() {
+        try (InputStream is = getClass().getResourceAsStream("/default_avatar.png")) {
+            if (is != null) {
+                defaultAvatar = ImageIO.read(is);
+            } else {
+                System.err.println("Default avatar image not found.");
+            }
+        }
+        //runelite may have its own way of doing this - investigate around
+        catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     /**
