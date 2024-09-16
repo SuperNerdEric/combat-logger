@@ -26,7 +26,9 @@ import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.party.PartyService;
 import net.runelite.client.party.WSClient;
 import net.runelite.client.plugins.Plugin;
+import net.runelite.client.plugins.PluginDependency;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.plugins.party.PartyPlugin;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.util.ImageUtil;
@@ -34,7 +36,6 @@ import net.runelite.client.ui.overlay.OverlayManager;
 import org.apache.commons.lang3.ArrayUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
@@ -47,11 +48,14 @@ import java.util.stream.Collectors;
 import static com.combatlogger.util.BossNames.VERZIK_P1_END;
 import static com.combatlogger.util.HitSplatUtil.getHitsplatName;
 
+@PluginDependency(PartyPlugin.class)
+
 @PluginDescriptor(
 		name = "Combat Logger",
 		description = "Damage meter and logs combat events to a text file - Upload and analyze your logs at runelogs.com.",
 		tags = {"damage", "dps", "pvm", "tob", "theatre of blood", "toa", "tombs of amascut", "meter", "counter", "tick"}
 )
+
 public class CombatLoggerPlugin extends Plugin
 {
 	public static final String DIRECTORY_NAME = "combat_log";
@@ -153,7 +157,6 @@ public class CombatLoggerPlugin extends Plugin
 		super.resetConfiguration();
 		clearLogs();
 	}
-
 
 	@Override
 	protected void startUp()

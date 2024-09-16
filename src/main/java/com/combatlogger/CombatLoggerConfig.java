@@ -2,6 +2,8 @@ package com.combatlogger;
 
 import net.runelite.client.config.*;
 
+import java.awt.*;
+
 @ConfigGroup("combatlogger")
 public interface CombatLoggerConfig extends Config
 {
@@ -44,6 +46,16 @@ public interface CombatLoggerConfig extends Config
     default SecondaryMetric secondaryMetric() { return SecondaryMetric.DPS; }
     enum SecondaryMetric { DPS, TICKS, }
 
+    //unsure why this is duplicated - copied from party plugin config
+    @ConfigItem(
+            keyName = "damageMeterColor",
+            name = "Damage Meter Color",
+            description = "Which color non-party members will appear as in the panel and overlay.",
+            position = 12
+    )
+    //heart's not set on this color
+    default Color damageMeterColor() { return new Color(196,30,58); }
+
     //Overlay
     @ConfigItem(
             keyName = "enableOverlay",
@@ -52,10 +64,7 @@ public interface CombatLoggerConfig extends Config
             section = overlaySection,
             position = 51
     )
-    default boolean enableOverlay()
-    {
-        return true;
-    }
+    default boolean enableOverlay() { return true; }
 
     //Overlay
     @ConfigItem(

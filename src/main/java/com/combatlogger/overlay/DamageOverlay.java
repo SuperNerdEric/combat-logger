@@ -17,6 +17,7 @@ import com.combatlogger.CombatLoggerPlugin;
 import com.combatlogger.model.Fight;
 import com.combatlogger.panel.CombatLoggerPanel;
 import com.combatlogger.panel.PlayerStats;
+import net.runelite.client.plugins.party.PartyPluginService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,6 +40,7 @@ public class DamageOverlay extends OverlayPanel {
     private final CombatLoggerPlugin combatLoggerPlugin;
     private final CombatLoggerPanel combatLoggerPanel;
     private final PartyService partyService;
+    private final PartyPluginService partyPluginService;
     private final CombatLoggerConfig config;
     private final Client client;
     private final TooltipManager tooltipManager;
@@ -50,21 +52,8 @@ public class DamageOverlay extends OverlayPanel {
 
     private final Map<String, BufferedImage> avatarCache = new ConcurrentHashMap<>();
     private final Map<String, Color> playerColors = new ConcurrentHashMap<>();
-    private final Color[] colors = {
-            Color.decode("#C41E3A"), // Red
-            Color.decode("#A330C9"), // Dark Magenta
-            Color.decode("#FF7C0A"), // Orange
-            Color.decode("#33937F"), // Dark Emerald
-            Color.decode("#AAD372"), // Pistachio
-            Color.decode("#3FC7EB"), // Light Blue
-            Color.decode("#00FF98"), // Spring Green
-            Color.decode("#F48CBA"), // Pink
-            Color.decode("#FFFFFF"), // White
-            Color.decode("#FFF468"), // Yellow
-            Color.decode("#0070DD"), // Blue
-            Color.decode("#8788EE"), // Purple
-            Color.decode("#C69B6D")  // Tan
-    };
+
+    private final Color defaultDamageMeterColor;
     private int colorIndex = 0;
 
     //image paths
@@ -73,7 +62,7 @@ public class DamageOverlay extends OverlayPanel {
 
 
     @Inject
-    public DamageOverlay(CombatLoggerPlugin plugin, CombatLoggerPanel panel, Client client, CombatLoggerConfig config, PartyService partyService, TooltipManager tooltipManager) {
+    public DamageOverlay(CombatLoggerPlugin plugin, CombatLoggerPanel panel, Client client, CombatLoggerConfig config, PartyService partyService, TooltipManager tooltipManager, PartyPluginService partyPluginService) {
         super(plugin);
 
         log.info("Building Overlay");
@@ -85,6 +74,7 @@ public class DamageOverlay extends OverlayPanel {
         this.config = config;
         this.partyService = partyService;
         this.tooltipManager = tooltipManager;
+        this.partyPluginService = partyPluginService;
         this.client = client;
 
         this.setResizable(true);
@@ -94,6 +84,8 @@ public class DamageOverlay extends OverlayPanel {
         this.addMenuEntry(RUNELITE_OVERLAY_CONFIG, OPTION_CONFIGURE, "Combat Logger Settings");
 
         defaultAvatar = loadImage(IMAGE_DEFAULT_AVATAR_PATH);
+        defaultDamageMeterColor = config.damageMeterColor();
+
         //the actual icon should likely be scaled instead of resizing.
         //I still need to test scaling and resizing across the various settings so leaving as is for now.
         settingsIcon = loadImage(IMAGE_SETTINGS_PATH);
@@ -204,18 +196,11 @@ public class DamageOverlay extends OverlayPanel {
             // Calculate bar length proportionally
             int barLength = (int) ((double) damage / maxDamage * (overlayWidth - avatarSize));
 
-            // Assign a color to the player if not already assigned
-            Color playerColor = playerColors.get(playerName);
-            if (playerColor == null) {
-                playerColor = colors[colorIndex % colors.length];
-                playerColors.put(playerName, playerColor);
-                colorIndex++;
-            }
+            BufferedImage avatarImage = avatarCache.get(playerName);
+            PartyMember partyMember = partyService.getMemberByDisplayName(playerName);
 
             // Fetch and cache avatar
-            BufferedImage avatarImage = avatarCache.get(playerName);
             if (avatarImage == null) {
-                PartyMember partyMember = partyService.getMemberByDisplayName(playerName);
                 if (partyMember != null && partyMember.getAvatar() != null) {
                     avatarImage = ImageUtil.resizeImage(partyMember.getAvatar(), avatarSize, avatarSize);
                 } else {
@@ -223,6 +208,21 @@ public class DamageOverlay extends OverlayPanel {
                 }
                 avatarCache.put(playerName, avatarImage);
             }
+
+            // Assign a color to the player if not already assigned
+            Color playerColor = playerColors.get(playerName);
+
+            if (playerColor == null) {
+                if(partyMember != null) {
+                    playerColor = Objects.requireNonNull(partyPluginService.getPartyData(partyMember.getMemberId())).getColor();
+                }
+                else {
+                    playerColor = defaultDamageMeterColor;
+                }
+            }
+
+            //todo reset player colors when joining a party & share these with panel in a central location - likely the plugin
+            playerColors.put(playerName, playerColor);
 
             // Draw avatar or placeholder square
             int avatarX = 0;
