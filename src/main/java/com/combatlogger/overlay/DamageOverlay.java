@@ -81,7 +81,7 @@ public class DamageOverlay extends OverlayPanel {
         this.setMovable(true);
 
         //menu entries
-        this.addMenuEntry(RUNELITE_OVERLAY_CONFIG, OPTION_CONFIGURE, "Combat Logger Settings");
+        //this.addMenuEntry(RUNELITE_OVERLAY_CONFIG, OPTION_CONFIGURE, "Combat Logger Settings");
 
         defaultAvatar = loadImage(IMAGE_DEFAULT_AVATAR_PATH);
         defaultDamageMeterColor = config.damageMeterColor();
