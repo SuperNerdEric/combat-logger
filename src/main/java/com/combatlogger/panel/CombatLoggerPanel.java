@@ -30,7 +30,6 @@ import static com.combatlogger.util.BossNames.BOSS_NAMES;
 import static com.combatlogger.util.BossNames.MINION_TO_BOSS;
 import static com.combatlogger.util.HitSplatUtil.NON_DAMAGE_HITSPLATS;
 
-@Singleton
 public class CombatLoggerPanel extends PluginPanel
 {
 	private final Client client;

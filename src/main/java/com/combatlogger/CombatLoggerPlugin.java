@@ -162,7 +162,7 @@ public class CombatLoggerPlugin extends Plugin
 	protected void startUp()
 	{
 		panel = injector.getInstance(CombatLoggerPanel.class);
-		logQueueManager.startUp(panel, eventBus);
+		logQueueManager.startUp(eventBus);
 
 		navButton = NavigationButton.builder()
 				.tooltip("Combat Logger")
@@ -179,13 +179,13 @@ public class CombatLoggerPlugin extends Plugin
 		wsClient.registerMessage(DamageMessage.class);
 
 		if(config.enableOverlay()){
-			//this should create new instances and pass configs etc so we can support multiple overlays in the future
 			overlayManager.add(damageOverlay);
 
-			//todo move to "combat start" when fight manager is done, remember to reset etc
 			overlayTimeout = new javax.swing.Timer(config.overlayTimeout() * 60 * 1000 , _ev -> removeOverlay());
 			overlayTimeout.start();
 		}
+
+		fightManager.startUp(panel, eventBus, damageOverlay, config);
 	}
 
 	@Override
@@ -198,9 +198,10 @@ public class CombatLoggerPlugin extends Plugin
 		clientToolbar.removeNavigation(navButton);
 		panel = null;
 		logQueueManager.shutDown(eventBus);
+		fightManager.shutDown(eventBus);
 		removeOverlay();
-
 	}
+
 
 	@Subscribe
 	public void onCommandExecuted(CommandExecuted commandExecuted)
@@ -511,25 +512,6 @@ public class CombatLoggerPlugin extends Plugin
 	}
 
 	@Subscribe
-	public void onNpcSpawned(NpcSpawned npcSpawned)
-	{
-		NPC npc = npcSpawned.getNpc();
-
-		if (VERZIK_P1_END.contains(npc.getId()) && !panel.getFights().isEmpty() && !panel.getFights().peekLast().isOver())
-		{
-			// P1 Verzik doesn't die, so send a fake death event when it changes forms
-			logQueueManager.queue(
-					new DeathLog(
-							client.getTickCount(),
-							getCurrentTimestamp(),
-							String.format("%s dies", panel.getFights().peekLast().getMainTarget()),
-							panel.getFights().peekLast().getMainTarget()
-					)
-			);
-		}
-	}
-
-	@Subscribe
 	public void onVarbitChanged(VarbitChanged varbitChanged)
 	{
 		if (varbitChanged.getValue() != 30)
@@ -598,14 +580,14 @@ public class CombatLoggerPlugin extends Plugin
 			newEntries[3] = client.createMenuEntry(-5)
 					.setOption("End Current Fight")
 					.setTarget("")
-					.setType(MenuAction.RUNELITE)
-					.onClick((me) -> panel.endCurrentFight());
+					.setType(MenuAction.RUNELITE);
+					//.onClick((me) -> panel.endCurrentFight());
 
 			newEntries[2] = client.createMenuEntry(-4)
 					.setOption("Clear All Fights")
 					.setTarget("")
-					.setType(MenuAction.RUNELITE)
-					.onClick((me) -> panel.clearFights());
+					.setType(MenuAction.RUNELITE);
+					//.onClick((me) -> panel.clearFights());
 
 			newEntries[1] = client.createMenuEntry(-3)
 					.setOption("Hide Overlay")
@@ -613,7 +595,7 @@ public class CombatLoggerPlugin extends Plugin
 					.setType(MenuAction.RUNELITE)
 					.onClick((me) -> overlayManager.remove(damageOverlay));
 
-			var fights = panel.getFights();
+			var fights = fightManager.getFights();
 
 			MenuEntry selectFightEntry = null;
 			if(fights != null){

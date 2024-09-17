@@ -11,7 +11,7 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.imageio.ImageIO;
 import javax.inject.Inject;
-
+import com.combatlogger.FightManager;
 import com.combatlogger.CombatLoggerConfig;
 import com.combatlogger.CombatLoggerPlugin;
 import com.combatlogger.model.Fight;
@@ -45,6 +45,8 @@ public class DamageOverlay extends OverlayPanel {
     private final Client client;
     private final TooltipManager tooltipManager;
 
+    @Inject
+    private FightManager fightManager;
 
     private BufferedImage defaultAvatar;
     private BufferedImage settingsIcon;
@@ -65,7 +67,6 @@ public class DamageOverlay extends OverlayPanel {
     public DamageOverlay(CombatLoggerPlugin plugin, CombatLoggerPanel panel, Client client, CombatLoggerConfig config, PartyService partyService, TooltipManager tooltipManager, PartyPluginService partyPluginService) {
         super(plugin);
 
-        log.info("Building Overlay");
         setPosition(OverlayPosition.ABOVE_CHATBOX_RIGHT);
         setLayer(OverlayLayer.UNDER_WIDGETS);
 
@@ -100,15 +101,15 @@ public class DamageOverlay extends OverlayPanel {
             currentSize = new Dimension(250, 150); // Default size
         }
 
-        Fight lastFight = combatLoggerPanel.getLastFight();
+        Fight lastFight = fightManager.getLastFight();
         if (lastFight == null) {
-            return null; // No fight data available
+            return null;
         }
 
-        List<PlayerStats> playerStats = combatLoggerPanel.getPlayerDamageForFight(lastFight);
+        List<PlayerStats> playerStats = fightManager.getPlayerDamageForFight(lastFight);
 
         if (playerStats.isEmpty()) {
-            return null; // No player stats to display
+            return null;
         }
 
         String fightName = lastFight.getFightName();
@@ -292,22 +293,6 @@ public class DamageOverlay extends OverlayPanel {
     }
 
     /**
-     * Menu Options
-     */
-    public void clear() {
-        //todo
-    }
-    public void endCurrentFight() {
-        //todo
-    }
-    public void hideOverlay() {
-        //todo
-    }
-    public void selectFight(String fight){
-
-    }
-
-    /**
      * Truncates the given text and appends an ellipsis if it exceeds the maxWidth.
      *
      * @param text      The original text to potentially truncate.
@@ -342,5 +327,8 @@ public class DamageOverlay extends OverlayPanel {
     public void clearCaches() {
         playerColors.clear();
         avatarCache.clear();
+    }
+
+    public void updateOverlay(List<PlayerStats> playerStats) {
     }
 }

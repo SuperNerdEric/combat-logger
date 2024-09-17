@@ -2,7 +2,6 @@ package com.combatlogger;
 
 import com.combatlogger.messages.DamageMessage;
 import com.combatlogger.model.logs.*;
-import com.combatlogger.panel.CombatLoggerPanel;
 import com.combatlogger.util.HitSplatUtil;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
@@ -21,6 +20,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.regex.Pattern;
 
 import static com.combatlogger.CombatLoggerPlugin.LOG_FILE;
 import static com.combatlogger.CombatLoggerPlugin.getCurrentTimestamp;
@@ -40,7 +40,8 @@ public class LogQueueManager
 	@Inject
 	private PartyService party;
 
-	private CombatLoggerPanel panel;
+	@Inject
+	private FightManager fightManager;
 
 	@Inject
 	private LogQueueManager(Client client)
@@ -48,15 +49,13 @@ public class LogQueueManager
 		this.client = client;
 	}
 
-	public void startUp(CombatLoggerPanel panel, EventBus eventBus)
+	public void startUp(EventBus eventBus)
 	{
-		this.panel = panel;
 		eventBus.register(this);
 	}
 
 	public void shutDown(EventBus eventBus)
 	{
-		this.panel = null;
 		eventBus.unregister(this);
 	}
 
@@ -74,24 +73,27 @@ public class LogQueueManager
 
 			if (log instanceof DamageLog && isNPC(((DamageLog) log).getTarget()))
 			{
-				panel.addDamage((DamageLog) log);
-			} else if (log instanceof DeathLog && isNPC(((DeathLog) log).getTarget()))
+				fightManager.addDamage((DamageLog) log);
+			}
+			else if (log instanceof DeathLog && isNPC(((DeathLog) log).getTarget()))
 			{
-				panel.recordDeath((DeathLog) log);
-			} else if (log instanceof TargetChangeLog && isNPC(((TargetChangeLog) log).getSource()) && !isNPC(((TargetChangeLog) log).getTarget()))
+				fightManager.recordDeath((DeathLog) log);
+			}
+			else if (log instanceof TargetChangeLog && isNPC(((TargetChangeLog) log).getSource()) && !isNPC(((TargetChangeLog) log).getTarget()))
 			{
-				panel.recordNPCTargettingPlayer((TargetChangeLog) log);
-			} else if (log instanceof GameMessageLog)
+				fightManager.recordNPCTargetingPlayer((TargetChangeLog) log);
+			}
+			else if (log instanceof GameMessageLog)
 			{
-				panel.handleGameMessage((GameMessageLog) log);
-			} else if (log instanceof AttackAnimationLog)
+				fightManager.handleGameMessage((GameMessageLog) log);
+			}
+			else if (log instanceof AttackAnimationLog)
 			{
-				panel.addTicks((AttackAnimationLog) log);
+				fightManager.addTicks((AttackAnimationLog) log);
 			}
 		}
 
-		panel.onGameTick(event);
-
+		// No need to call panel.onGameTick(event); as FightManager handles game ticks.
 	}
 
 	private void log(int tickCount, String timestamp, String message)
@@ -122,7 +124,7 @@ public class LogQueueManager
 
 		if (localMember == null || localMember.getMemberId() == event.getMemberId())
 		{
-			// Don't need to update logs from our self
+			// Don't need to update logs from ourself
 			return;
 		}
 
@@ -158,7 +160,7 @@ public class LogQueueManager
 					new DamageLog(
 							client.getTickCount(),
 							getCurrentTimestamp(),
-							(String.format("%s\t%s\t%s\t%d", eventMember.getDisplayName(), newHitsplatName, event.getTarget(), event.getDamage())),
+							String.format("%s\t%s\t%s\t%d", eventMember.getDisplayName(), newHitsplatName, event.getTarget(), event.getDamage()),
 							eventMember.getDisplayName(),
 							event.getTarget(),
 							event.getTargetName(),
