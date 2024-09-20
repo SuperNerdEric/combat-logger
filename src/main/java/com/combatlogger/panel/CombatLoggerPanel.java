@@ -48,8 +48,6 @@ public class CombatLoggerPanel extends PluginPanel
 	@Inject
 	public CombatLoggerPanel(Client client, CombatLoggerConfig config, FightManager fightManager)
 	{
-		this.client = client;
-		this.config = config;
 		this.fightManager = fightManager;
 
 		final JPanel topPanel = new JPanel();
