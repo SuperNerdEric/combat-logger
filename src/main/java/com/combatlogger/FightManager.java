@@ -1,27 +1,34 @@
 package com.combatlogger;
 
 import com.combatlogger.model.Fight;
+import com.combatlogger.model.PlayerStats;
 import com.combatlogger.model.logs.*;
-import com.combatlogger.overlay.DamageOverlay;
-import com.combatlogger.panel.CombatLoggerPanel;
-import com.combatlogger.panel.PlayerStats;
 import com.combatlogger.util.AnimationIds;
-import com.combatlogger.util.BossNames;
 import com.combatlogger.util.BoundedQueue;
 import lombok.Getter;
+import lombok.Setter;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.NPC;
+import net.runelite.api.Player;
 import net.runelite.api.events.ChatMessage;
-import net.runelite.api.events.GameTick;
+import net.runelite.client.eventbus.EventBus;
 import net.runelite.api.events.NpcSpawned;
 import net.runelite.client.chat.ChatMessageManager;
-import net.runelite.client.eventbus.EventBus;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.party.PartyMember;
+import net.runelite.client.party.PartyService;
+import net.runelite.client.plugins.party.PartyPluginService;
+import net.runelite.client.plugins.party.data.PartyData;
+import net.runelite.client.events.ConfigChanged;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
+import java.awt.*;
 import java.util.*;
+import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -33,13 +40,19 @@ import static com.combatlogger.util.HitSplatUtil.NON_DAMAGE_HITSPLATS;
 public class FightManager
 {
     private final Client client;
+    private final Map<String, Color> playerColors = new ConcurrentHashMap<>();
+    private final EventBus eventBus;
 
     @Getter
     private final BoundedQueue<Fight> fights = new BoundedQueue<>(20);
 
-    private CombatLoggerPanel panel;
-    private DamageOverlay overlay;
-    private CombatLoggerConfig config;
+    private final CombatLoggerConfig config;
+
+    @Inject
+    private PartyPluginService partyPluginService;
+
+    @Inject
+    private PartyService partyService;
 
     @Inject
     private LogQueueManager logQueueManager;
@@ -47,66 +60,46 @@ public class FightManager
     @Inject
     private ChatMessageManager chatMessageManager;
 
-    @Inject
-    public FightManager(Client client)
-    {
-        this.client = client;
-    }
+    // Added field to keep track of the selected fight
+    @Setter
+    private Fight selectedFight;
 
-    public void startUp(CombatLoggerPanel panel, EventBus eventBus, DamageOverlay overlay, CombatLoggerConfig config)
-    {
-        this.panel = panel;
-        this.overlay = overlay;
+    // Define the default color list
+    private final Color[] defaultColors = {
+            Color.decode("#C41E3A"), // Red
+            Color.decode("#A330C9"), // Dark Magenta
+            Color.decode("#FF7C0A"), // Orange
+            Color.decode("#33937F"), // Dark Emerald
+            Color.decode("#AAD372"), // Pistachio
+            Color.decode("#3FC7EB"), // Light Blue
+            Color.decode("#00FF98"), // Spring Green
+            Color.decode("#F48CBA"), // Pink
+            Color.decode("#FFFFFF"), // White
+            Color.decode("#FFF468"), // Yellow
+            Color.decode("#0070DD"), // Blue
+            Color.decode("#8788EE"), // Purple
+            Color.decode("#C69B6D")  // Tan
+    };
+
+    // Atomic integer to keep track of the next color index
+    private final AtomicInteger colorIndex = new AtomicInteger(0);
+
+    @Inject
+    public FightManager(
+            Client client,
+            CombatLoggerConfig config,
+            EventBus eventBus
+    ) {
+        this.client = client;
         this.config = config;
+        this.eventBus = eventBus;
         eventBus.register(this);
     }
 
-    public void shutDown(EventBus eventBus)
-    {
+    public void shutDown() {
         eventBus.unregister(this);
-        this.panel = null;
-        this.overlay = null;
-        this.config = null;
     }
 
-    @Subscribe
-    public void onGameTick(GameTick event)
-    {
-        if (!fights.isEmpty() && !fights.peekLast().isOver())
-        {
-            Fight currentFight = fights.peekLast();
-
-            currentFight.setFightLengthTicks(currentFight.getFightLengthTicks() + 1);
-            panel.updateCurrentFightLength(Fight.formatTime(currentFight.getFightLengthTicks()));
-
-            if ((currentFight.getLastActivityTick() + 100 < client.getTickCount() && !currentFight.getFightName().startsWith("Path of"))
-                    || (currentFight.getLastActivityTick() + 500 < client.getTickCount() && currentFight.getFightName().startsWith("Path of")))
-            {
-                // End the fight due to inactivity
-                currentFight.setOver(true);
-            }
-
-            List<PlayerStats> playerStats = getPlayerDamageForFight(currentFight);
-            panel.updateOverviewPanel(playerStats);
-            overlay.updateOverlay(playerStats);
-        }
-        else
-        {
-            panel.updateCurrentFightLength("00:00");
-        }
-    }
-
-    public void configChanged()
-    {
-        if (!fights.isEmpty())
-        {
-            Fight currentFight = fights.peekLast();
-            List<PlayerStats> playerStats = getPlayerDamageForFight(currentFight);
-            panel.updateOverviewPanel(playerStats);
-            panel.showOverviewPanel();
-            panel.updateFightsComboBox(fights);
-        }
-    }
 
     public List<PlayerStats> getPlayerDamageForFight(Fight fight)
     {
@@ -156,8 +149,10 @@ public class FightManager
         int totalDamage = playerStatsMap.values().stream().mapToInt(PlayerStats::getDamage).sum();
 
         playerStatsMap.forEach((name, playerStats) -> {
-            double dps = playerStats.getDamage() / fightLengthSeconds;
-            double percentOfTotalDamage = (double) playerStats.getDamage() / totalDamage * 100;
+            double dps = fightLengthSeconds > 0 ? (double) playerStats.getDamage() / fightLengthSeconds : 0;
+            double percentOfTotalDamage = totalDamage > 0 ? ((double) playerStats.getDamage() / totalDamage * 100) : 0;
+
+            // Ensure that percentage damage is not NaN
             if (Double.isNaN(percentOfTotalDamage))
             {
                 percentOfTotalDamage = 0;
@@ -182,42 +177,82 @@ public class FightManager
         return null;
     }
 
-    public void endCurrentFight()
-    {
-        if (!fights.isEmpty() && !fights.peekLast().isOver())
-        {
+    public void endCurrentFight() {
+        if (!fights.isEmpty() && !fights.peekLast().isOver()) {
             fights.peekLast().setOver(true);
         }
     }
-
-    public void setCurrentFight(Fight fight)
-    {
-        List<PlayerStats> playerStats = getPlayerDamageForFight(fight);
-        panel.updateOverviewPanel(playerStats);
+    public synchronized void setCurrentFight(Fight fight) {
+        if (fight == null) {
+            return;
+        }
+        // End the current fight if it's still active
+        endCurrentFight();
+        // Add the new fight as the current fight
+        fights.add(fight);
     }
 
     public void clearFights()
     {
         fights.clear();
-        panel.updateFightsComboBox(fights);
-        panel.updateOverviewPanel(new ArrayList<>());
-        panel.showOverviewPanel();
+        selectedFight = null; // Clear the selected fight when clearing all fights
+        clearPlayerColors();  // Optionally clear player colors when clearing fights
     }
 
-    public void addDamage(DamageLog damageLog)
+    /**
+     * Retrieves the color associated with a player. If the player is in a party, their party color is used.
+     * Otherwise, a default color from the predefined list is assigned. Once all colors are used, the colors will repeat.
+     *
+     * @param playerName The name of the player.
+     * @return The Color assigned to the player.
+     */
+    public Color getPlayerColor(String playerName) {
+        // First, check if the player is part of a party
+        PartyMember partyMember = partyService.getMemberByDisplayName(playerName);
+        if (partyMember != null) {
+            PartyData partyData = partyPluginService.getPartyData(partyMember.getMemberId());
+            if (partyData != null && partyData.getColor() != null) {
+                return partyData.getColor();
+            }
+        }
+
+        // else proceed with existing logic
+        PartyMember localMember = partyService.getLocalMember();
+        Player player = client.getLocalPlayer();
+        String localPlayerName = localMember == null ? player.getName() : localMember.getDisplayName();
+
+        if (Objects.equals(playerName, localPlayerName)) {
+            return config.selfDamageMeterColor();
+        }
+
+        // Assign a default color from the list, caching the result
+        return playerColors.computeIfAbsent(playerName, name -> {
+            int index = colorIndex.getAndIncrement() % defaultColors.length;
+            return defaultColors[index];
+        });
+    }
+
+    /**
+     * Clears cached player colors for non-party players and resets the color index.
+     */
+    public void clearPlayerColors()
     {
-        if (NON_DAMAGE_HITSPLATS.contains(damageLog.getHitsplatName()))
-        {
+        playerColors.clear();
+        colorIndex.set(0); // Reset the color index when clearing colors
+    }
+
+    public void addDamage(DamageLog damageLog) {
+        if (NON_DAMAGE_HITSPLATS.contains(damageLog.getHitsplatName())) {
             return;
         }
 
         Fight currentFight;
-        if (fights.isEmpty() || fights.peekLast().isOver())
-        {
+        boolean newFightStarted = false;
+
+        if (fights.isEmpty() || fights.peekLast().isOver()) {
             if (damageLog.getSource().equals("Unknown")
                     && !BOSS_NAMES.contains(damageLog.getTargetName())
-                    && !MINION_TO_BOSS.containsKey(damageLog.getTargetName()))
-            {
+                    && !MINION_TO_BOSS.containsKey(damageLog.getTargetName())) {
                 // Don't start a fight if the source is Unknown unless it's a boss or minion
                 return;
             }
@@ -226,21 +261,19 @@ public class FightManager
             currentFight.setFightName(damageLog.getTargetName());
             currentFight.setMainTarget(damageLog.getTarget());
             fights.add(currentFight);
-        }
-        else
-        {
+            selectedFight = currentFight; // Set the new fight as the selected fight
+            newFightStarted = true;
+        } else {
             currentFight = fights.peekLast();
 
-            if (!currentFight.getMainTarget().equals(damageLog.getTarget()) && BOSS_NAMES.contains(damageLog.getTargetName()))
-            {
+            if (!currentFight.getMainTarget().equals(damageLog.getTarget()) && BOSS_NAMES.contains(damageLog.getTargetName())) {
                 // If we are in the middle of a fight and encounter a boss, change the fight name and main target
                 currentFight.setFightName(damageLog.getTargetName());
                 currentFight.setMainTarget(damageLog.getTarget());
             }
 
             String bossName = MINION_TO_BOSS.get(damageLog.getTargetName());
-            if (bossName != null)
-            {
+            if (bossName != null) {
                 // If we encounter a minion of a boss, change the fight name and main target to the boss
                 currentFight.setFightName(bossName);
                 currentFight.setMainTarget(bossName);
@@ -250,14 +283,11 @@ public class FightManager
         currentFight.setLastActivityTick(client.getTickCount());
 
         Fight.PlayerData playerData = currentFight.getPlayerDataMap().get(damageLog.getSource());
-        if (playerData == null)
-        {
+        if (playerData == null) {
             playerData = new Fight.PlayerData(damageLog.getSource());
         }
         playerData.addDamage(damageLog.getTargetName(), damageLog.getDamageAmount());
         currentFight.getPlayerDataMap().put(damageLog.getSource(), playerData);
-
-        panel.updateFightsComboBox(fights);
     }
 
     public void addTicks(AttackAnimationLog attackAnimationLog)
@@ -274,10 +304,11 @@ public class FightManager
                 return;
             }
             currentFight = new Fight();
-            currentFight.setFightLengthTicks(0);
+            currentFight.setFightLengthTicks(1); // Ensure at least 1 tick to prevent zero duration
             currentFight.setFightName(attackAnimationLog.getTargetName());
             currentFight.setMainTarget(attackAnimationLog.getTarget());
             fights.add(currentFight);
+            selectedFight = currentFight; // Set the new fight as the selected fight
         }
         else
         {
@@ -295,7 +326,8 @@ public class FightManager
                 AnimationIds.getTicks(attackAnimationLog.getAnimationId(), attackAnimationLog.getWeaponId()));
         currentFight.getPlayerDataMap().put(attackAnimationLog.getSource(), playerData);
 
-        panel.updateFightsComboBox(fights);
+        // Increment fight length ticks to reflect ongoing fight
+        currentFight.setFightLengthTicks(currentFight.getFightLengthTicks() + 1);
     }
 
     public void recordDeath(DeathLog deathLog)
@@ -315,12 +347,12 @@ public class FightManager
         {
             String fightName = message.substring("Challenge started: ".length()).replace(".", "");
             Fight newFight = new Fight();
-            newFight.setFightLengthTicks(0);
+            newFight.setFightLengthTicks(1); // Ensure at least 1 tick
             newFight.setLastActivityTick(client.getTickCount());
             newFight.setFightName(fightName);
             newFight.setMainTarget(fightName);
             fights.add(newFight);
-            panel.updateFightsComboBox(fights);
+            selectedFight = newFight; // Set the new fight as the selected fight
         }
         else if (message.startsWith("Challenge complete: Path of")
                 || message.startsWith("Challenge complete: The Wardens"))
@@ -339,37 +371,12 @@ public class FightManager
         {
             // A boss has targeted a player; start a new fight
             Fight newFight = new Fight();
-            newFight.setFightLengthTicks(1);
+            newFight.setFightLengthTicks(1); // Ensure at least 1 tick
             newFight.setLastActivityTick(client.getTickCount());
             newFight.setFightName(targetChangeLog.getSourceName());
             newFight.setMainTarget(targetChangeLog.getSource());
             fights.add(newFight);
-            panel.updateFightsComboBox(fights);
-        }
-    }
-
-    @Subscribe
-    public void onNpcSpawned(NpcSpawned npcSpawned)
-    {
-        NPC npc = npcSpawned.getNpc();
-
-        if (VERZIK_P1_END.contains(npc.getId()) && !fights.isEmpty() && !fights.peekLast().isOver())
-        {
-            // P1 Verzik doesn't die, so send a fake death event when it changes forms
-            DeathLog deathLog = new DeathLog(
-                    client.getTickCount(),
-                    getCurrentTimestamp(),
-                    String.format("%s dies", fights.peekLast().getMainTarget()),
-                    fights.peekLast().getMainTarget()
-            );
-
-            recordDeath(deathLog);
-
-            // Optionally, queue the death log for writing
-            if (logQueueManager != null)
-            {
-                logQueueManager.queue(deathLog);
-            }
+            selectedFight = newFight; // Set the new fight as the selected fight
         }
     }
 
@@ -403,5 +410,55 @@ public class FightManager
     // Regular expression pattern for specific chat messages
     private static final Pattern ENCOUNTER_PATTERN = Pattern.compile("(Wave|Duration|Challenge)", Pattern.CASE_INSENSITIVE);
 
-    // Additional methods to handle other events if necessary
+    @Subscribe
+    public void onNpcSpawned(NpcSpawned npcSpawned)
+    {
+        NPC npc = npcSpawned.getNpc();
+
+        if (VERZIK_P1_END.contains(npc.getId()) && !fights.isEmpty() && !fights.peekLast().isOver())
+        {
+            // P1 Verzik doesn't die, so send a fake death event when it changes forms
+            DeathLog deathLog = new DeathLog(
+                    client.getTickCount(),
+                    getCurrentTimestamp(),
+                    String.format("%s dies", fights.peekLast().getMainTarget()),
+                    fights.peekLast().getMainTarget()
+            );
+
+            recordDeath(deathLog);
+
+            // Optionally, queue the death log for writing
+            if (logQueueManager != null)
+            {
+                logQueueManager.queue(deathLog);
+            }
+        }
+    }
+
+    // Added methods to get and set the selected fight
+    public Fight getSelectedFight() {
+        if (selectedFight == null && !fights.isEmpty()) {
+            return fights.peekLast();
+        }
+        return selectedFight;
+    }
+
+    /**
+     * Subscribe to configuration changes to update player colors when relevant config options change.
+     *
+     * @param event The ConfigChanged event.
+     */
+    @Subscribe
+    public void onConfigChanged(ConfigChanged event)
+    {
+        if (!"combatLogger".equals(event.getGroup())) {
+            return;
+        }
+
+        // Check if the change affects player colors
+        if ("damageMeterColor".equals(event.getKey()) || "someOtherColorRelatedKey".equals(event.getKey())) {
+            // Clear cached player colors to ensure updated colors are used
+            clearPlayerColors();
+        }
+    }
 }

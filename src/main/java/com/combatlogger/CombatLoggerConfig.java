@@ -8,61 +8,61 @@ import java.awt.*;
 public interface CombatLoggerConfig extends Config
 {
     @ConfigSection(
-            position = 10,
+            position = 0,
             name = "Damage Meter",
             description = "Damage Meter (Overlay + Panel)"
     )
     String damageMeterSection = "damageMeterSection";
 
     @ConfigSection(
-            position = 50,
+            position = 25,
             name = "Overlay",
             description = "Overlay Settings"
     )
     String overlaySection = "overlaySettings";
 
-
-    /* Damage Meter Settings (currently affects both overlay and panel) */
-
-    //Damage Meter
-    @ConfigItem(
-            keyName = "logInChat",
-            name = "Log In Chat (Debug)",
-            description = "Display logs in chat" +
-                    "<br><strong>This is very excessive, mostly for testing/verification.<strong>",
-            warning = "Enabling this will spam your chat with combat messages. This option is mostly for debugging and is not necessary for the text file logging or damage meter.",
-            position = 0
+    @ConfigSection(
+            position = 50,
+            name = "Debug",
+            description = "Debug",
+            closedByDefault = true
     )
-    default boolean logInChat() { return false; }
+    String debugSection = "debugSection";
 
+
+    /* Damage Meter Settings (currently affects both overlay and panel)
+    * POSITIONS: 1-24
+    * */
     @ConfigItem(
             keyName = "secondaryMetric",
             name = "Secondary Metric",
             description = "Which Secondary Metric to display alongside Damage - e.g. Damage (DPS, %)",
             section = damageMeterSection,
-            position = 11
+            position = 1
 
     )
     default SecondaryMetric secondaryMetric() { return SecondaryMetric.DPS; }
     enum SecondaryMetric { DPS, TICKS, }
 
-    //unsure why this is duplicated - copied from party plugin config
     @ConfigItem(
-            keyName = "damageMeterColor",
-            name = "Damage Meter Color",
-            description = "Which color non-party members will appear as in the panel and overlay.",
-            position = 12
+            keyName = "selfDamageMeterColor",
+            name = "Self Color",
+            description = "Color that will represent you in both the panel and overlay when not in a party.",
+            section = damageMeterSection,
+            position = 2
     )
     //heart's not set on this color
-    default Color damageMeterColor() { return new Color(196,30,58); }
+    default Color selfDamageMeterColor() { return new Color(196,30,58); }
 
-    //Overlay
+    /* Overlay Settings
+     * POSITIONS: 26-49
+    * */
     @ConfigItem(
             keyName = "enableOverlay",
             name = "Enable Overlay",
             description = "Toggles the display of the overlay",
             section = overlaySection,
-            position = 51
+            position = 26
     )
     default boolean enableOverlay() { return true; }
 
@@ -70,9 +70,9 @@ public interface CombatLoggerConfig extends Config
     @ConfigItem(
             keyName = "showOverlayAvatar",
             name = "Show Overlay Avatar",
-            description = "Toggles the ",
+            description = "Toggles the display of the party avatar (or default) within the overlay",
             section = overlaySection,
-            position = 52
+            position = 27
     )
     default boolean showOverlayAvatar()
     {
@@ -83,12 +83,30 @@ public interface CombatLoggerConfig extends Config
             keyName = "overlayTimeout",
             name = "Overlay Timeout",
             description = "Hides the overlay after a period of time outside of combat",
-            position = 53
+            section = overlaySection,
+            position = 28
     )
     @Units(Units.MINUTES)
     default int overlayTimeout()
     {
         return 5;
     }
+
+    /* Debug Settings
+     * POSITIONS: 51-74
+     * */
+    @ConfigItem(
+            keyName = "logInChat",
+            name = "Log In Chat (Debug)",
+            description = "Display logs in chat" +
+                    "<br><strong>This is very excessive, mostly for testing/verification.<strong>",
+            warning = "Enabling this will spam your chat with combat messages. This option is mostly for debugging and is not necessary for the text file logging or damage meter.",
+            section = debugSection,
+            position = 51
+    )
+    default boolean logInChat() { return false; }
+
+
+
 
 }

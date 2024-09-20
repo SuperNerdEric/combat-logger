@@ -5,6 +5,7 @@ import com.combatlogger.model.logs.*;
 import com.combatlogger.overlay.DamageOverlay;
 import com.combatlogger.panel.CombatLoggerPanel;
 import com.combatlogger.util.AnimationIds;
+import com.combatlogger.util.BoundedQueue;
 import com.google.inject.Provides;
 import lombok.Getter;
 import com.combatlogger.messages.DamageMessage;
@@ -31,12 +32,14 @@ import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.party.PartyPlugin;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
+import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.util.ImageUtil;
 import net.runelite.client.ui.overlay.OverlayManager;
 import org.apache.commons.lang3.ArrayUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import javax.inject.Inject;
+import java.awt.*;
 import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
@@ -44,8 +47,6 @@ import java.util.*;
 import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-
-import static com.combatlogger.util.BossNames.VERZIK_P1_END;
 import static com.combatlogger.util.HitSplatUtil.getHitsplatName;
 
 @PluginDependency(PartyPlugin.class)
@@ -99,7 +100,10 @@ public class CombatLoggerPlugin extends Plugin
 	private Set<Integer> playerAnimationChanges = new HashSet<>();
 	private int regionId = -1;
 
+	private boolean inFight = false;
 	private javax.swing.Timer overlayTimeout = null;
+	@Getter
+	private Boolean overlayVisible = false;
 
 	@Inject
 	private Client client;
@@ -179,13 +183,9 @@ public class CombatLoggerPlugin extends Plugin
 		wsClient.registerMessage(DamageMessage.class);
 
 		if(config.enableOverlay()){
-			overlayManager.add(damageOverlay);
-
-			overlayTimeout = new javax.swing.Timer(config.overlayTimeout() * 60 * 1000 , _ev -> removeOverlay());
-			overlayTimeout.start();
+			setOverlayVisible(true);
+			resetOverlayTimeout();
 		}
-
-		fightManager.startUp(panel, eventBus, damageOverlay, config);
 	}
 
 	@Override
@@ -198,8 +198,9 @@ public class CombatLoggerPlugin extends Plugin
 		clientToolbar.removeNavigation(navButton);
 		panel = null;
 		logQueueManager.shutDown(eventBus);
-		fightManager.shutDown(eventBus);
-		removeOverlay();
+		fightManager.shutDown();
+		// [Existing shutDown logic remains unchanged]
+		setOverlayVisible(false);
 	}
 
 
@@ -232,6 +233,35 @@ public class CombatLoggerPlugin extends Plugin
 	@Subscribe
 	public void onGameTick(GameTick event)
 	{
+		Fight currentFight = fightManager.getLastFight();
+		boolean fightOngoing = currentFight != null && !currentFight.isOver();
+
+		if (fightOngoing && !inFight) {
+			// Fight has just started
+			inFight = true;
+			setOverlayVisible(true);
+			stopOverlayTimeout();
+			log.debug("Fight started. Overlay shown.");
+		} else if (!fightOngoing && inFight) {
+			// Fight has just ended
+			inFight = false;
+			resetOverlayTimeout();
+			log.debug("Fight ended. Overlay timeout reset.");
+		}
+
+		if (fightOngoing) {
+			currentFight.setFightLengthTicks(currentFight.getFightLengthTicks() + 1);
+			panel.updatePanel();
+
+			if ((currentFight.getLastActivityTick() + 100 < client.getTickCount() && !currentFight.getFightName().startsWith("Path of"))
+					|| (currentFight.getLastActivityTick() + 500 < client.getTickCount() && currentFight.getFightName().startsWith("Path of"))) {
+				currentFight.setOver(true);
+				damageOverlay.updateOverlay();
+				log.debug("Fight marked as over.");
+			}
+		} else {
+			panel.updatePanel();
+		}
 		if (checkPlayerName && client.getLocalPlayer() != null && client.getLocalPlayer().getName() != null)
 		{
 			logPlayerName();
@@ -562,87 +592,179 @@ public class CombatLoggerPlugin extends Plugin
 		}
 	}
 
-	public void removeOverlay(){
-		damageOverlay.clearCaches();
-		overlayManager.removeIf(e -> e instanceof DamageOverlay);
+	/**
+	 * Sets the overlay visibility based on the provided parameter.
+	 *
+	 * @param visible If true, the overlay is shown; if false, it is hidden.
+	 */
+	public void setOverlayVisible(boolean visible) {
+		if (visible && config.enableOverlay()) {
+			if (!overlayVisible) {
+				overlayVisible = true;
+				overlayManager.add(damageOverlay);
+				log.debug("Overlay enabled and added to OverlayManager.");
+			}
+			resetOverlayTimeout();
+		} else {
+			if (overlayVisible) {
+				overlayVisible = false;
+				overlayManager.remove(damageOverlay);
+				log.debug("Overlay disabled and removed from OverlayManager.");
+			}
+			stopOverlayTimeout();
+		}
 	}
+
+	/**
+	 * Shows the overlay by setting its visibility to true.
+	 */
+	public void showOverlay() {
+		setOverlayVisible(true);
+	}
+
+	/**
+	 * Hides the overlay by setting its visibility to false.
+	 */
+	public void hideOverlay() {
+		setOverlayVisible(false);
+	}
+
+
+	/**
+	 * Stops and nullifies the existing overlay timer.
+	 */
+	public void stopOverlayTimeout() {
+		if (overlayTimeout != null) {
+			overlayTimeout.stop();
+			overlayTimeout = null;
+			log.debug("Overlay timeout stopped.");
+		}
+	}
+
+	/**
+	 * Resets the overlay timer to hide the overlay after the configured timeout.
+	 */
+	public void resetOverlayTimeout() {
+		stopOverlayTimeout(); // Ensure no existing timer is running
+		if (config.enableOverlay()) {
+			var timeoutMS = config.overlayTimeout() * 60 * 1000; // Convert minutes to milliseconds
+			overlayTimeout = new javax.swing.Timer(timeoutMS, _ev -> setOverlayVisible(false));
+			overlayTimeout.setRepeats(false); // Ensure the timer only runs once
+			overlayTimeout.start();
+			log.debug("Overlay timeout reset with timeout: {} ms", timeoutMS);
+		}
+	}
+
 
 	@Subscribe
 	public void onMenuOpened(MenuOpened event) {
 		Point mousePosition = client.getMouseCanvasPosition();
-		var overlayBounds = damageOverlay.getBounds();
+		Rectangle overlayBounds = damageOverlay.getBounds();
 
 		if (overlayBounds.contains(mousePosition.getX(), mousePosition.getY())) {
 			// Get existing menu entries
 			MenuEntry[] existingEntries = event.getMenuEntries();
-			MenuEntry[] newEntries = new MenuEntry[4];
 
-			newEntries[3] = client.createMenuEntry(-5)
-					.setOption("End Current Fight")
-					.setTarget("")
-					.setType(MenuAction.RUNELITE);
-					//.onClick((me) -> panel.endCurrentFight());
+			// Use a dynamic list to hold new entries
+			List<MenuEntry> newEntries = new ArrayList<>();
 
-			newEntries[2] = client.createMenuEntry(-4)
-					.setOption("Clear All Fights")
-					.setTarget("")
-					.setType(MenuAction.RUNELITE);
-					//.onClick((me) -> panel.clearFights());
+			// Retrieve the current fights
+			BoundedQueue<Fight> fights = fightManager.getFights();
 
-			newEntries[1] = client.createMenuEntry(-3)
-					.setOption("Hide Overlay")
-					.setTarget("")
-					.setType(MenuAction.RUNELITE)
-					.onClick((me) -> overlayManager.remove(damageOverlay));
-
-			var fights = fightManager.getFights();
-
-			MenuEntry selectFightEntry = null;
-			if(fights != null){
-				// Reverse order so the newest fights are first
-
-				// Create your main menu entry
-				selectFightEntry = client.createMenuEntry(-2)
-						.setTarget("Select Fight") // You can set a target if needed
+			// Only add the "Select Fight" entry if there are active fights
+			if (fights != null && !fights.isEmpty()) {
+				// Create the main "Select Fight" menu entry
+				MenuEntry selectFightEntry = client.createMenuEntry(-2)
+						.setOption("Select Fight")
+						.setTarget("")
 						.setType(MenuAction.RUNELITE)
 						.setDeprioritized(true);
 
-				// Create a submenu for the "Select Fight" entry
+				// Create a submenu for selecting a fight
 				Menu submenu = selectFightEntry.createSubMenu();
 				Iterator<Fight> iterator = fights.descendingIterator();
 
 				int i = -1;
-				while (iterator.hasNext())
-				{
-					Fight fight = iterator.next(); // Store the result of next() once
+				while (iterator.hasNext()) {
+					Fight fight = iterator.next();
 					submenu.createMenuEntry(i)
-							.setTarget(fight.getFightName() + " (" + Fight.formatTime(fight.getFightLengthTicks()) + ")")
+							.setOption(fight.getFightName() + " (" + Fight.formatTime(fight.getFightLengthTicks()) + ")")
+							.setTarget("")
 							.setType(MenuAction.RUNELITE)
-							.onClick((e) -> panel.setPanelCurrentFight(fight)); // Use the stored fight
+							.onClick((e) -> fightManager.setCurrentFight(fight));
 					i--;
 				}
-				newEntries[0] = selectFightEntry;
+
+				// Add the "Select Fight" entry to the new entries list first
+				newEntries.add(selectFightEntry);
 			}
 
-			// Add the main menu entry to the menu
-			client.setMenuEntries(ArrayUtils.addAll(existingEntries, newEntries));
-		}
+			// Add "Hide Overlay" entry next
+			newEntries.add(client.createMenuEntry(-3)
+					.setOption("Hide Overlay")
+					.setTarget("")
+					.setType(MenuAction.RUNELITE)
+					.onClick((me) -> hideOverlay()));
 
+			// Add "Clear All Fights" entry next
+			newEntries.add(client.createMenuEntry(-4)
+					.setOption("Clear All Fights")
+					.setTarget("")
+					.setType(MenuAction.RUNELITE)
+					.onClick((me) -> fightManager.clearFights()));
+
+			// Add "End Current Fight" entry last
+			newEntries.add(client.createMenuEntry(-5)
+					.setOption("End Current Fight")
+					.setTarget("")
+					.setType(MenuAction.RUNELITE)
+					.onClick((me) -> fightManager.endCurrentFight()));
+
+			// Convert the new entries list to an array
+			MenuEntry[] newEntriesArray = newEntries.toArray(new MenuEntry[0]);
+
+			// Combine existing entries with new entries and set the menu
+			client.setMenuEntries(ArrayUtils.addAll(existingEntries, newEntriesArray));
+		}
 	}
+
+
 
 	@Subscribe
 	public void onConfigChanged(ConfigChanged event)
 	{
-
 		if (!event.getGroup().equals("combatlogger"))
 		{
 			return;
 		}
 
-		if (event.getKey().equals("secondaryMetric"))
-		{
-			panel.configChanged();
-		}
+        switch (event.getKey()) {
+            case "secondaryMetric":
+                panel.updatePanel();
+                break;
+
+            case "selfDamageMeterColor":
+				fightManager.clearPlayerColors();
+				panel.updatePanel();
+                break;
+
+			case "enableOverlay":
+				if(config.enableOverlay()){
+					showOverlay();
+				}
+				else {
+					hideOverlay();
+				}
+				break;
+
+			case "showOverlayAvatar":
+				damageOverlay.clearAvatarCache();
+				break;
+
+			case "overlayTimeout":
+				resetOverlayTimeout();
+				break;
+        }
 	}
 
 	protected static String getCurrentTimestamp()

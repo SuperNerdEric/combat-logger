@@ -1,6 +1,8 @@
 package com.combatlogger.panel;
 
 import com.combatlogger.CombatLoggerConfig;
+import com.combatlogger.FightManager;
+import com.combatlogger.model.PlayerStats;
 
 import javax.swing.*;
 import java.awt.*;
@@ -9,16 +11,20 @@ import java.util.List;
 
 public abstract class DamageBarsPanel extends JPanel
 {
-	private CombatLoggerConfig config;
+	private final FightManager fightManager;
+	private final CombatLoggerConfig config;
 	protected List<DamageBar> damageBars = new ArrayList<>();
 	protected CombatLoggerPanel parentPanel;
 
 	protected JPanel topPanel;
 
-	public DamageBarsPanel(CombatLoggerPanel parentPanel, CombatLoggerConfig config)
+
+	public DamageBarsPanel(CombatLoggerPanel parentPanel, CombatLoggerConfig config, FightManager fightManager)
 	{
 		this.parentPanel = parentPanel;
 		this.config = config;
+		this.fightManager = fightManager;
+
 		setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
 
 		topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 2, 0));
@@ -31,15 +37,24 @@ public abstract class DamageBarsPanel extends JPanel
 	{
 		DamageBar damageBar = new DamageBar();
 		damageBar.setMaximumValue(maximumValue);
-		damageBar.setValue(stats.damage);
-		damageBar.setLeftLabel(stats.name);
+		damageBar.setValue(stats.getDamage());
+		damageBar.setLeftLabel(stats.getName());
+
 		if (this.config.secondaryMetric() == CombatLoggerConfig.SecondaryMetric.DPS)
 		{
-			damageBar.setRightLabel(String.format("%d (%.2f, %.2f%%)", stats.damage, stats.dps, stats.percentDamage));
-		} else
-		{
-			damageBar.setRightLabel(String.format("%d (%s, %.2f%%)", stats.damage, stats.getTicks(), stats.percentDamage));
+			damageBar.setRightLabel(String.format("%d (%.2f, %.2f%%)", stats.getDamage(), stats.getDps(), stats.getPercentDamage()));
 		}
+		else
+		{
+			damageBar.setRightLabel(String.format("%d (%s, %.2f%%)", stats.getDamage(), stats.getTicks(), stats.getPercentDamage()));
+		}
+
+		// Assign color to the DamageBar
+		if (stats.getColor() == null)
+		{
+			stats.setColor(fightManager.getPlayerColor(stats.getName()));
+		}
+		damageBar.setForeground(stats.getColor());
 		return damageBar;
 	}
 
@@ -50,8 +65,14 @@ public abstract class DamageBarsPanel extends JPanel
 
 		for (PlayerStats stats : damageBreakdown)
 		{
-			if (stats.damage > 0)
+			if (stats.getDamage() > 0)
 			{
+				// Assign a color if not already set
+				if (stats.getColor() == null)
+				{
+					stats.setColor(fightManager.getPlayerColor(stats.getName()));
+				}
+
 				DamageBar newBar = createDamageBar(stats, maximumValue);
 				damageBars.add(newBar);
 				add(newBar);

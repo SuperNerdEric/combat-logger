@@ -4,20 +4,22 @@ import com.combatlogger.CombatLoggerConfig;
 import com.combatlogger.CombatLoggerPlugin;
 import com.combatlogger.FightManager;
 import com.combatlogger.model.Fight;
+import com.combatlogger.model.PlayerStats;
 import com.combatlogger.util.BoundedQueue;
 import net.runelite.client.util.ImageUtil;
 import net.runelite.client.util.LinkBrowser;
 import net.runelite.client.util.SwingUtil;
 import lombok.Getter;
-import net.runelite.api.Client;
 import net.runelite.client.ui.PluginPanel;
 
 import javax.inject.Inject;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 
 import static com.combatlogger.CombatLoggerPlugin.DIRECTORY;
 
@@ -38,15 +40,20 @@ public class CombatLoggerPanel extends PluginPanel
 	private static final ImageIcon STOP_ICON;
 	private static final ImageIcon CLOSE_ICON;
 
-	static
-	{
+	static {
 		FOLDER_ICON = new ImageIcon(ImageUtil.loadImageResource(CombatLoggerPlugin.class, "/folder.png"));
 		STOP_ICON = new ImageIcon(ImageUtil.loadImageResource(CombatLoggerPlugin.class, "/stop.png"));
 		CLOSE_ICON = new ImageIcon(ImageUtil.loadImageResource(CombatLoggerPlugin.class, "/close.png"));
 	}
 
+	// **Added Cached Fights List**
+	private List<Fight> cachedFights = new ArrayList<>();
+
+	// **Optional: Debounce Timer**
+	private javax.swing.Timer debounceTimer;
+
 	@Inject
-	public CombatLoggerPanel(Client client, CombatLoggerConfig config, FightManager fightManager)
+	public CombatLoggerPanel(CombatLoggerConfig config, FightManager fightManager)
 	{
 		this.fightManager = fightManager;
 
@@ -73,6 +80,9 @@ public class CombatLoggerPanel extends PluginPanel
 			if (isConfirmed("Are you sure you want to clear all fights?", "Clear all fights"))
 			{
 				fightManager.clearFights();
+				updateFightsComboBox(fightManager.getFights());
+				updateOverviewPanel(new ArrayList<>());
+				showOverviewPanel();
 			}
 		});
 		JButton stopFightButton = createButton(STOP_ICON, "End the current fight", () ->
@@ -95,41 +105,28 @@ public class CombatLoggerPanel extends PluginPanel
 		fightsComboBox.setRenderer(new PlaceholderComboBoxRenderer("Start a fight..."));
 		fightsComboBox.addActionListener(e -> {
 			selectedFight = (Fight) fightsComboBox.getSelectedItem();
-			if (selectedFight != null)
-			{
+			fightManager.setSelectedFight(selectedFight); // Set the selected fight in FightManager
+			if (selectedFight != null) {
 				List<PlayerStats> playerStats = fightManager.getPlayerDamageForFight(selectedFight);
 				updateOverviewPanel(playerStats);
 			}
 		});
 
-		damageOverviewPanel = new DamageOverviewPanel(this, config);
-		drillDownPanel = new DamageDrillDownPanel(this, config);
+		damageOverviewPanel = new DamageOverviewPanel(this, config, fightManager);
+		drillDownPanel = new DamageDrillDownPanel(this, config, fightManager);
 
 		damageMeterPanel.add(damageOverviewPanel, "overview");
 		damageMeterPanel.add(drillDownPanel, "drilldown");
 
 		showOverviewPanel();
 		add(damageMeterPanel);
-	}
 
-	public void configChanged()
-	{
-		if (!fightManager.getFights().isEmpty())
-		{
-			Fight currentFight = fightManager.getLastFight();
-			List<PlayerStats> playerStats = fightManager.getPlayerDamageForFight(currentFight);
-			updateOverviewPanel(playerStats);
-			showOverviewPanel();
+		// **Initialize Debounce Timer to one tick**
+		debounceTimer = new javax.swing.Timer(600, e -> {
 			updateFightsComboBox(fightManager.getFights());
-		}
-	}
-
-	private boolean isConfirmed(final String message, final String title)
-	{
-		int confirm = JOptionPane.showConfirmDialog(this,
-				message, title, JOptionPane.OK_CANCEL_OPTION);
-
-		return confirm == JOptionPane.YES_OPTION;
+			debounceTimer.stop();
+		});
+		debounceTimer.setRepeats(false);
 	}
 
 	public void showOverviewPanel()
@@ -165,6 +162,13 @@ public class CombatLoggerPanel extends PluginPanel
 		{
 			fightsComboBox.addItem(iterator.next());
 		}
+
+		// Set the selected item in the combo box
+		Fight selectedFight = fightManager.getSelectedFight();
+		if (selectedFight != null)
+		{
+			fightsComboBox.setSelectedItem(selectedFight);
+		}
 	}
 
 	public JButton createButton(ImageIcon icon, String toolTipText, Runnable onClick)
@@ -177,11 +181,45 @@ public class CombatLoggerPanel extends PluginPanel
 
 		return button;
 	}
+
+	private boolean isConfirmed(final String message, final String title)
+	{
+		int confirm = JOptionPane.showConfirmDialog(this,
+				message, title, JOptionPane.OK_CANCEL_OPTION);
+
+		return confirm == JOptionPane.YES_OPTION;
+	}
+
+	/**
+	 * This method now checks if there are changes in the fights list before updating the combo box.
+	 * Using a debounce timer to limit update frequency.
+	 */
+	public void updatePanel() {
+		SwingUtilities.invokeLater(() -> {
+			// **Convert BoundedQueue<Fight> to List<Fight>**
+            List<Fight> currentFights = new ArrayList<>(fightManager.getFights());
+
+			// **Check if fights have changed**
+			if (!currentFights.equals(cachedFights)) {
+				debounceTimer.restart();
+				cachedFights = new ArrayList<>(currentFights);
+			}
+
+			selectedFight = fightManager.getSelectedFight(); // Get the selected fight
+			if (selectedFight != null) {
+				List<PlayerStats> playerStats = fightManager.getPlayerDamageForFight(selectedFight);
+				updateOverviewPanel(playerStats);
+				updateCurrentFightLength(Fight.formatTime(selectedFight.getFightLengthTicks()));
+			} else {
+				updateCurrentFightLength("00:00");
+			}
+		});
+	}
 }
 
 class PlaceholderComboBoxRenderer extends DefaultListCellRenderer
 {
-	private String placeholder;
+	private final String placeholder;
 
 	public PlaceholderComboBoxRenderer(String placeholder)
 	{

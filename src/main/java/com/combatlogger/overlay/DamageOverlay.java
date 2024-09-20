@@ -4,19 +4,18 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.Map;
 import javax.imageio.ImageIO;
 import javax.inject.Inject;
 import com.combatlogger.FightManager;
 import com.combatlogger.CombatLoggerConfig;
 import com.combatlogger.CombatLoggerPlugin;
 import com.combatlogger.model.Fight;
-import com.combatlogger.panel.CombatLoggerPanel;
-import com.combatlogger.panel.PlayerStats;
+import com.combatlogger.model.PlayerStats;
+import net.runelite.client.callback.ClientThread;
 import net.runelite.client.plugins.party.PartyPluginService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,68 +31,77 @@ import net.runelite.client.party.PartyMember;
 import net.runelite.client.ui.overlay.tooltip.Tooltip;
 import net.runelite.client.ui.overlay.tooltip.TooltipManager;
 import net.runelite.client.util.ImageUtil;
-import static net.runelite.api.MenuAction.*;
-import static net.runelite.client.ui.overlay.OverlayManager.OPTION_CONFIGURE;
 
 public class DamageOverlay extends OverlayPanel {
-    private static final Logger log = LoggerFactory.getLogger(DamageOverlay.class); //REMOVE BEFORE FINISHING
+    private static final Logger log = LoggerFactory.getLogger(DamageOverlay.class);
     private final CombatLoggerPlugin combatLoggerPlugin;
-    private final CombatLoggerPanel combatLoggerPanel;
     private final PartyService partyService;
     private final PartyPluginService partyPluginService;
     private final CombatLoggerConfig config;
     private final Client client;
     private final TooltipManager tooltipManager;
-
-    @Inject
-    private FightManager fightManager;
+    private final ClientThread clientThread;
+    private final FightManager fightManager;
 
     private BufferedImage defaultAvatar;
     private BufferedImage settingsIcon;
-
+    private boolean showAvatars;
 
     private final Map<String, BufferedImage> avatarCache = new ConcurrentHashMap<>();
-    private final Map<String, Color> playerColors = new ConcurrentHashMap<>();
 
-    private final Color defaultDamageMeterColor;
-    private int colorIndex = 0;
-
-    //image paths
+    // Image paths
     static final String IMAGE_DEFAULT_AVATAR_PATH = "/default_avatar.png";
     static final String IMAGE_SETTINGS_PATH = "/settings.png";
 
-
     @Inject
-    public DamageOverlay(CombatLoggerPlugin plugin, CombatLoggerPanel panel, Client client, CombatLoggerConfig config, PartyService partyService, TooltipManager tooltipManager, PartyPluginService partyPluginService) {
+    public DamageOverlay(
+            CombatLoggerPlugin plugin,
+            Client client,
+            CombatLoggerConfig config,
+            PartyService partyService,
+            TooltipManager tooltipManager,
+            PartyPluginService partyPluginService,
+            ClientThread clientThread,
+            FightManager fightManager
+    ) {
         super(plugin);
 
         setPosition(OverlayPosition.ABOVE_CHATBOX_RIGHT);
         setLayer(OverlayLayer.UNDER_WIDGETS);
 
         this.combatLoggerPlugin = plugin;
-        this.combatLoggerPanel = panel;
         this.config = config;
         this.partyService = partyService;
         this.tooltipManager = tooltipManager;
         this.partyPluginService = partyPluginService;
         this.client = client;
+        this.clientThread = clientThread;
+        this.fightManager = fightManager;
 
         this.setResizable(true);
         this.setMovable(true);
 
-        //menu entries
-        //this.addMenuEntry(RUNELITE_OVERLAY_CONFIG, OPTION_CONFIGURE, "Combat Logger Settings");
-
         defaultAvatar = loadImage(IMAGE_DEFAULT_AVATAR_PATH);
-        defaultDamageMeterColor = config.damageMeterColor();
-
-        //the actual icon should likely be scaled instead of resizing.
-        //I still need to test scaling and resizing across the various settings so leaving as is for now.
         settingsIcon = loadImage(IMAGE_SETTINGS_PATH);
     }
-
     @Override
     public Dimension render(Graphics2D graphics) {
+        if (!config.enableOverlay() || !combatLoggerPlugin.getOverlayVisible()) {
+            return null;
+        }
+
+        Fight selectedFight = fightManager.getSelectedFight();
+        if (selectedFight == null) {
+            return null;
+        }
+        List<PlayerStats> playerStats = fightManager.getPlayerDamageForFight(selectedFight);
+        if (playerStats.isEmpty()) {
+            return null;
+        }
+
+        String fightName = selectedFight.getFightName() + " (" + Fight.formatTime(selectedFight.getFightLengthTicks()) + ")";
+
+        showAvatars = config.showOverlayAvatar();
 
         // Get the current overlay size
         Dimension currentSize = panelComponent.getPreferredSize();
@@ -101,23 +109,10 @@ public class DamageOverlay extends OverlayPanel {
             currentSize = new Dimension(250, 150); // Default size
         }
 
-        Fight lastFight = fightManager.getLastFight();
-        if (lastFight == null) {
-            return null;
-        }
-
-        List<PlayerStats> playerStats = fightManager.getPlayerDamageForFight(lastFight);
-
-        if (playerStats.isEmpty()) {
-            return null;
-        }
-
-        String fightName = lastFight.getFightName();
-
         // Rendering parameters
         final Rectangle overlayBounds = this.getBounds();
         final int barHeight = 20;
-        final int avatarSize = barHeight; // Avatar is the same height as the bar
+        final int avatarSize = showAvatars ? barHeight : 0; // Adjust avatar size based on showAvatars
         final int spacing = 0; // Remove all padding between bars
         int yPosition = 0;
         int overlayWidth = currentSize.width;
@@ -148,7 +143,7 @@ public class DamageOverlay extends OverlayPanel {
         // Position the settings icon in the header
         Rectangle settingsIconBounds = null;
         if (settingsIcon != null) {
-            int settingsIconX = overlayWidth - settingsIcon.getWidth() - 2; // 5px padding from the right
+            int settingsIconX = overlayWidth - settingsIcon.getWidth() - 2; // 2px padding from the right
             int settingsIconY = (headerHeight - settingsIcon.getHeight()) / 2; // Vertically center the icon
             graphics.drawImage(settingsIcon, settingsIconX, settingsIconY, null);
 
@@ -160,8 +155,7 @@ public class DamageOverlay extends OverlayPanel {
 
             final Point mousePosition = client.getMouseCanvasPosition();
 
-            if (settingsIconBounds.contains(mousePosition.getX(), mousePosition.getY()))
-            {
+            if (settingsIconBounds.contains(mousePosition.getX(), mousePosition.getY())) {
                 tooltipManager.add(new Tooltip("Shift -> Right click for Damage Overlay settings"));
             }
         }
@@ -170,8 +164,8 @@ public class DamageOverlay extends OverlayPanel {
         graphics.setFont(FontManager.getRunescapeSmallFont());
         FontMetrics barMetrics = graphics.getFontMetrics();
 
-        int availableFightNameWidth = overlayWidth - settingsIcon.getWidth() - 6; //6 for padding
-        String truncatedFightName = truncateText("Damage Done: " + fightName, barMetrics, availableFightNameWidth);
+        int availableFightNameWidth = overlayWidth - (settingsIcon != null ? settingsIcon.getWidth() + 6 : 6); // Adjust if settings icon is present
+        String truncatedFightName = truncateText("Damage: " + fightName, barMetrics, availableFightNameWidth);
 
         // Position the header text vertically centered
         int headerTextY = (headerHeight - headerMetrics.getHeight()) / 2 + headerMetrics.getAscent();
@@ -182,63 +176,51 @@ public class DamageOverlay extends OverlayPanel {
 
         yPosition = headerHeight + spacing;
 
-
         // Render each damage bar
         for (PlayerStats stats : playerStats) {
             String playerName = stats.getName();
             int damage = stats.getDamage();
-            double percentDamage = 0;
-            if (totalDamage > 0) {
-                percentDamage = ((double) damage / totalDamage) * 100;
-            }
-
-            double dps = stats.getDps();
+            double percentDamage = stats.getPercentDamage(); // Already handled to avoid NaN
+            CombatLoggerConfig.SecondaryMetric secondaryMetric = this.config.secondaryMetric();
 
             // Calculate bar length proportionally
-            int barLength = (int) ((double) damage / maxDamage * (overlayWidth - avatarSize));
+            // Adjust the available width based on whether avatars are shown
+            int availableBarWidth = showAvatars ? (overlayWidth - avatarSize) : overlayWidth;
+            int barLength = (int) ((double) damage / maxDamage * availableBarWidth);
 
-            BufferedImage avatarImage = avatarCache.get(playerName);
-            PartyMember partyMember = partyService.getMemberByDisplayName(playerName);
+            BufferedImage avatarImage = null;
+            if (showAvatars) {
+                avatarImage = avatarCache.get(playerName);
+                PartyMember partyMember = partyService.getMemberByDisplayName(playerName);
 
-            // Fetch and cache avatar
-            if (avatarImage == null) {
-                if (partyMember != null && partyMember.getAvatar() != null) {
-                    avatarImage = ImageUtil.resizeImage(partyMember.getAvatar(), avatarSize, avatarSize);
-                } else {
-                    avatarImage = ImageUtil.resizeImage(defaultAvatar, avatarSize, avatarSize);
-                }
-                avatarCache.put(playerName, avatarImage);
-            }
-
-            // Assign a color to the player if not already assigned
-            Color playerColor = playerColors.get(playerName);
-
-            if (playerColor == null) {
-                if(partyMember != null) {
-                    playerColor = Objects.requireNonNull(partyPluginService.getPartyData(partyMember.getMemberId())).getColor();
-                }
-                else {
-                    playerColor = defaultDamageMeterColor;
+                // Fetch and cache avatar
+                if (avatarImage == null) {
+                    if (partyMember != null && partyMember.getAvatar() != null) {
+                        avatarImage = ImageUtil.resizeImage(partyMember.getAvatar(), avatarSize, avatarSize);
+                    } else {
+                        avatarImage = ImageUtil.resizeImage(defaultAvatar, avatarSize, avatarSize);
+                    }
+                    avatarCache.put(playerName, avatarImage);
                 }
             }
 
-            //todo reset player colors when joining a party & share these with panel in a central location - likely the plugin
-            playerColors.put(playerName, playerColor);
+            // Get the player's color from FightManager
+            Color playerColor = fightManager.getPlayerColor(playerName);
 
-            // Draw avatar or placeholder square
+            // Draw avatar or skip if avatars are hidden
             int avatarX = 0;
             int avatarY = yPosition; // Align avatar with the top of the bar
 
-            if (avatarImage != null) {
+            if (showAvatars && avatarImage != null) {
                 graphics.drawImage(avatarImage, avatarX, avatarY, null);
             }
 
-            // Adjust positions
-            int barX = avatarSize; // Bar starts immediately after avatar
-            int textX = barX + 5;
+            // Adjust positions based on avatar visibility
+            int barX = showAvatars ? avatarSize : 0; // Bar starts after avatar if shown
+            int textX = showAvatars ? (barX + 5) : 5; // Text starts after avatar or with padding
 
             graphics.setColor(new Color(70, 70, 70, 120));
-            graphics.fillRect(barX, yPosition, overlayWidth - avatarSize, barHeight);
+            graphics.fillRect(barX, yPosition, availableBarWidth, barHeight);
 
             // Draw damage bar with adjusted transparency
             Color semiTransparentPlayerColor = new Color(playerColor.getRed(), playerColor.getGreen(), playerColor.getBlue(), 165);
@@ -250,8 +232,15 @@ public class DamageOverlay extends OverlayPanel {
             String nameText = playerName;
             int nameTextY = yPosition + ((barHeight - barMetrics.getHeight()) / 2) + barMetrics.getAscent();
 
-            String dpsText = String.format("(%.2f, %.1f%%)", dps, percentDamage);
-            String damageText = String.format("%d %s", damage, dpsText);
+            String secondaryText = "";
+            if (secondaryMetric == CombatLoggerConfig.SecondaryMetric.DPS) {
+                secondaryText = String.format("(%.2f, %.1f%%)", stats.getDps(), percentDamage);
+            }
+            else if (secondaryMetric == CombatLoggerConfig.SecondaryMetric.TICKS) {
+                secondaryText = String.format("(%d, %.1f%%)", stats.getTicks(), percentDamage);
+            }
+
+            String damageText = String.format("%d %s", damage, secondaryText);
 
             // Calculate the width of the damage and DPS text to right-align it
             int damageTextWidth = barMetrics.stringWidth(damageText);
@@ -260,8 +249,15 @@ public class DamageOverlay extends OverlayPanel {
             // Draw the damage and DPS text right-aligned
             graphics.drawString(damageText, damageTextXPosition, nameTextY);
 
-            // Draw the player name on the left
-            graphics.drawString(nameText, textX, nameTextY);
+            // Calculate available width for nameText to avoid overlapping with damageText
+            int availableNameWidth = damageTextXPosition - textX - 5; // 5 pixels padding between name and damage
+            if (availableNameWidth > 0) {
+                String truncatedNameText = truncateText(nameText, barMetrics, availableNameWidth);
+                graphics.drawString(truncatedNameText, textX, nameTextY);
+            } else {
+                // If there's no space, you might choose to skip drawing the name or handle it differently
+                log.warn("Not enough space to draw nameText for player: {}", playerName);
+            }
 
             // Move y-position for the next bar
             yPosition += barHeight + spacing;
@@ -270,11 +266,9 @@ public class DamageOverlay extends OverlayPanel {
         // Set the preferred size dynamically based on the current size
         panelComponent.setPreferredSize(new Dimension(overlayWidth, totalHeight));
 
-        //eventually should be super.render(graphics); as per convention, but that's preventing moving atm
         return new Dimension(overlayWidth, totalHeight);
-
-        //return super.render(graphics);
     }
+
 
     private BufferedImage loadImage(String path) {
         BufferedImage image = null;
@@ -282,12 +276,11 @@ public class DamageOverlay extends OverlayPanel {
             if (is != null) {
                 image = ImageIO.read(is);
             } else {
-                System.err.println("Default avatar image not found.");
+                log.error("Image not found at path: {}", path);
             }
         }
-        //runelite may have its own way of doing this - investigate around
         catch (IOException e) {
-            e.printStackTrace();
+            log.error("Error loading image at path: {}", path, e);
         }
         return image;
     }
@@ -310,7 +303,7 @@ public class DamageOverlay extends OverlayPanel {
         int availableWidth = maxWidth - ellipsisWidth;
 
         if (availableWidth <= 0) {
-            return ellipsis; // Not enough space to display any part of the text
+            return ellipsis;
         }
 
         int len = text.length();
@@ -321,14 +314,15 @@ public class DamageOverlay extends OverlayPanel {
         return text.substring(0, len) + ellipsis;
     }
 
-    /**
-     * Clears both playerColors and avatarCache to remove outdated data.
-     */
-    public void clearCaches() {
-        playerColors.clear();
+    public void clearAvatarCache(){
         avatarCache.clear();
     }
 
-    public void updateOverlay(List<PlayerStats> playerStats) {
+    /**
+     * Runelite redraws UI every frame, so a manual repaint isn't required.
+     * This will clear caches to ensure player/avatar data is updated.
+     */
+    public void updateOverlay() {
+        clearAvatarCache();
     }
 }
