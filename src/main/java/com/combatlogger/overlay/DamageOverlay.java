@@ -78,9 +78,6 @@ public class DamageOverlay extends OverlayPanel {
         this.clientThread = clientThread;
         this.fightManager = fightManager;
 
-        this.setResizable(true);
-        this.setMovable(true);
-
         defaultAvatar = loadImage(IMAGE_DEFAULT_AVATAR_PATH);
         settingsIcon = loadImage(IMAGE_SETTINGS_PATH);
     }
@@ -104,10 +101,7 @@ public class DamageOverlay extends OverlayPanel {
         showAvatars = config.showOverlayAvatar();
 
         // Get the current overlay size
-        Dimension currentSize = panelComponent.getPreferredSize();
-        if (currentSize == null || currentSize.width == 0 || currentSize.height == 0) {
-            currentSize = new Dimension(250, 150); // Default size
-        }
+        Dimension currentSize = this.getBounds().getSize();
 
         // Rendering parameters
         final Rectangle overlayBounds = this.getBounds();
@@ -263,10 +257,7 @@ public class DamageOverlay extends OverlayPanel {
             yPosition += barHeight + spacing;
         }
 
-        // Set the preferred size dynamically based on the current size
-        panelComponent.setPreferredSize(new Dimension(overlayWidth, totalHeight));
-
-        return new Dimension(overlayWidth, totalHeight);
+		return new Dimension(Math.max(200, currentSize.width), Math.min(40, currentSize.height));
     }
 
 
