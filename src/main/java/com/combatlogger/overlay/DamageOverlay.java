@@ -52,9 +52,6 @@ public class DamageOverlay extends OverlayPanel {
     // Image paths
     static final String IMAGE_DEFAULT_AVATAR_PATH = "/default_avatar.png";
     static final String IMAGE_SETTINGS_PATH = "/settings.png";
-    static final int MIN_WIDTH = 100;
-    static final int MIN_HEIGHT = 40;
-    static final int MAX_HEIGHT = 140; //20px header + 6*20 damage bars
 
     @Inject
     public DamageOverlay(
@@ -103,29 +100,16 @@ public class DamageOverlay extends OverlayPanel {
 
         showAvatars = config.showOverlayAvatar();
 
+        // Get the current overlay size
+        Dimension currentSize = this.getBounds().getSize();
+
         // Rendering parameters
         final Rectangle overlayBounds = this.getBounds();
         final int barHeight = 20;
         final int avatarSize = showAvatars ? barHeight : 0; // Adjust avatar size based on showAvatars
+        final int spacing = 0; // Remove all padding between bars
         int yPosition = 0;
-        // Calculate the total height of the overlay if all players were rendered
-
-
-        Dimension currentSize = this.getBounds().getSize();
-        log.warn("currentSize W:"+currentSize.width+", H:"+currentSize.height);
-
-
-        int overlayWidth = Math.max(MIN_WIDTH, currentSize.width); //not bothering with a max width atm
-
-        int desiredHeight = Math.max(barHeight + (playerStats.size() * (barHeight)), MIN_HEIGHT);
-        int overlayHeight = Math.max(currentSize.height, desiredHeight);
-        overlayHeight = Math.min(overlayHeight, MAX_HEIGHT);
-
-        Dimension newSize = new Dimension(overlayWidth, overlayHeight);
-
-        log.warn("newSize W:"+newSize.width+", H:"+newSize.height);
-        //log.warn("-------------------");
-
+        int overlayWidth = currentSize.width;
 
         int totalDamage = playerStats.stream().mapToInt(PlayerStats::getDamage).sum();
         int maxDamage = playerStats.stream().mapToInt(PlayerStats::getDamage).max().orElse(1); // Avoid division by zero
@@ -137,20 +121,24 @@ public class DamageOverlay extends OverlayPanel {
         graphics.setFont(FontManager.getRunescapeSmallFont());
         FontMetrics headerMetrics = graphics.getFontMetrics();
 
+        int headerHeight = barHeight;
+
+        // Calculate the total height of the overlay
+        int totalHeight = headerHeight + (playerStats.size() * (barHeight + spacing));
 
         // Draw the background for the entire overlay with adjusted transparency
         graphics.setColor(new Color(50, 50, 50, 120)); // Semi-transparent gray background
-        graphics.fillRect(0, 0, overlayWidth, overlayHeight);
+        graphics.fillRect(0, 0, overlayWidth, totalHeight);
 
         // Draw the header background with adjusted transparency
         graphics.setColor(new Color(30, 30, 30, 209)); // Slightly darker semi-transparent background
-        graphics.fillRect(0, 0, overlayWidth, barHeight);
+        graphics.fillRect(0, 0, overlayWidth, headerHeight);
 
         // Position the settings icon in the header
         Rectangle settingsIconBounds = null;
         if (settingsIcon != null) {
             int settingsIconX = overlayWidth - settingsIcon.getWidth() - 2; // 2px padding from the right
-            int settingsIconY = (barHeight - settingsIcon.getHeight()) / 2; // Vertically center the icon
+            int settingsIconY = (headerHeight - settingsIcon.getHeight()) / 2; // Vertically center the icon
             graphics.drawImage(settingsIcon, settingsIconX, settingsIconY, null);
 
             // Calculate global coordinates by adding overlay's top-left corner
@@ -169,24 +157,21 @@ public class DamageOverlay extends OverlayPanel {
         // Prepare font and metrics for bars
         graphics.setFont(FontManager.getRunescapeSmallFont());
         FontMetrics barMetrics = graphics.getFontMetrics();
+
         int availableFightNameWidth = overlayWidth - (settingsIcon != null ? settingsIcon.getWidth() + 6 : 6); // Adjust if settings icon is present
         String truncatedFightName = truncateText("Damage: " + fightName, barMetrics, availableFightNameWidth);
 
         // Position the header text vertically centered
-        int headerTextY = (barHeight - headerMetrics.getHeight()) / 2 + headerMetrics.getAscent();
+        int headerTextY = (headerHeight - headerMetrics.getHeight()) / 2 + headerMetrics.getAscent();
 
         // Draw the header text
         graphics.setColor(Color.WHITE);
         graphics.drawString(truncatedFightName, 3, headerTextY); // Slight offset for readability
 
-        yPosition = barHeight;
-        log.warn(String.valueOf(playerStats.size()));
-        int maxRows = Math.min(((int) Math.ceil((double) overlayHeight - barHeight) / barHeight), playerStats.size());
-        log.warn(String.valueOf(maxRows));
+        yPosition = headerHeight + spacing;
 
-        for (var i = 0; i <= maxRows; i++) {
-            var stats = playerStats.get(i);
-            log.warn("player:"+playerStats.get(i).getName());
+        // Render each damage bar
+        for (PlayerStats stats : playerStats) {
             String playerName = stats.getName();
             int damage = stats.getDamage();
             double percentDamage = stats.getPercentDamage(); // Already handled to avoid NaN
@@ -238,6 +223,7 @@ public class DamageOverlay extends OverlayPanel {
 
             // Draw player name
             graphics.setColor(Color.WHITE);
+            String nameText = playerName;
             int nameTextY = yPosition + ((barHeight - barMetrics.getHeight()) / 2) + barMetrics.getAscent();
 
             String secondaryText = "";
@@ -260,15 +246,18 @@ public class DamageOverlay extends OverlayPanel {
             // Calculate available width for nameText to avoid overlapping with damageText
             int availableNameWidth = damageTextXPosition - textX - 5; // 5 pixels padding between name and damage
             if (availableNameWidth > 0) {
-                String truncatedNameText = truncateText(playerName, barMetrics, availableNameWidth);
+                String truncatedNameText = truncateText(nameText, barMetrics, availableNameWidth);
                 graphics.drawString(truncatedNameText, textX, nameTextY);
+            } else {
+                // If there's no space, you might choose to skip drawing the name or handle it differently
+                log.warn("Not enough space to draw nameText for player: {}", playerName);
             }
 
             // Move y-position for the next bar
-            yPosition += barHeight;
+            yPosition += barHeight + spacing;
         }
 
-        return newSize;
+        return new Dimension(Math.max(200, currentSize.width), Math.max(40, currentSize.height));
     }
 
 
