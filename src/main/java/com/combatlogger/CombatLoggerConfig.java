@@ -56,6 +56,7 @@ public interface CombatLoggerConfig extends Config
     /* Overlay Settings
      * POSITIONS: 26-49
     * */
+
     @ConfigItem(
             keyName = "enableOverlay",
             name = "Enable Overlay",

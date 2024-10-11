@@ -5,7 +5,6 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map;
 import javax.imageio.ImageIO;
@@ -15,18 +14,14 @@ import com.combatlogger.CombatLoggerConfig;
 import com.combatlogger.CombatLoggerPlugin;
 import com.combatlogger.model.Fight;
 import com.combatlogger.model.PlayerStats;
-import net.runelite.client.callback.ClientThread;
 import net.runelite.client.plugins.party.PartyPluginService;
+import net.runelite.client.ui.overlay.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import net.runelite.api.*;
 import net.runelite.api.Point;
 import net.runelite.client.party.PartyService;
 import net.runelite.client.ui.FontManager;
-import net.runelite.client.ui.overlay.OverlayLayer;
-import net.runelite.client.ui.overlay.OverlayPanel;
-import net.runelite.client.ui.overlay.OverlayPosition;
 import net.runelite.client.party.PartyMember;
 import net.runelite.client.ui.overlay.tooltip.Tooltip;
 import net.runelite.client.ui.overlay.tooltip.TooltipManager;
@@ -36,24 +31,24 @@ public class DamageOverlay extends OverlayPanel {
     private static final Logger log = LoggerFactory.getLogger(DamageOverlay.class);
     private final CombatLoggerPlugin combatLoggerPlugin;
     private final PartyService partyService;
-    private final PartyPluginService partyPluginService;
     private final CombatLoggerConfig config;
     private final Client client;
     private final TooltipManager tooltipManager;
-    private final ClientThread clientThread;
     private final FightManager fightManager;
 
-    private BufferedImage defaultAvatar;
-    private BufferedImage settingsIcon;
-    private boolean showAvatars;
-
+    private final BufferedImage defaultAvatar;
+    private final BufferedImage settingsIcon;
     private final Map<String, BufferedImage> avatarCache = new ConcurrentHashMap<>();
+    private boolean automaticSizing = true;
 
     // Image paths
     static final String IMAGE_DEFAULT_AVATAR_PATH = "/default_avatar.png";
     static final String IMAGE_SETTINGS_PATH = "/settings.png";
 
-
+    // Defaults
+    static final int LINE_HEIGHT = 20;
+    static final Dimension MIN_SIZE = new Dimension(150, LINE_HEIGHT * 2); //header + 1 row
+    static final int AUTOMATIC_MAX_HEIGHT = LINE_HEIGHT * 6; //header + 5 rows
 
     @Inject
     public DamageOverlay(
@@ -63,22 +58,19 @@ public class DamageOverlay extends OverlayPanel {
             PartyService partyService,
             TooltipManager tooltipManager,
             PartyPluginService partyPluginService,
-            ClientThread clientThread,
             FightManager fightManager
     ) {
         super(plugin);
 
         setPosition(OverlayPosition.ABOVE_CHATBOX_RIGHT);
         setLayer(OverlayLayer.UNDER_WIDGETS);
-
+        setPreferredSize(MIN_SIZE);
 
         this.combatLoggerPlugin = plugin;
         this.config = config;
         this.partyService = partyService;
         this.tooltipManager = tooltipManager;
-        this.partyPluginService = partyPluginService;
         this.client = client;
-        this.clientThread = clientThread;
         this.fightManager = fightManager;
 
         defaultAvatar = loadImage(IMAGE_DEFAULT_AVATAR_PATH);
@@ -100,31 +92,29 @@ public class DamageOverlay extends OverlayPanel {
         }
 
         String fightName = selectedFight.getFightName() + " (" + Fight.formatTime(selectedFight.getFightLengthTicks()) + ")";
-
-        showAvatars = config.showOverlayAvatar();
-
-        // Get the current overlay size
+        boolean showAvatars = config.showOverlayAvatar();
         Dimension currentSize = this.getBounds().getSize();
 
-        // Rendering parameters
+        //overlay has been resized beyond managed bounds, stop automatic height sizing
+        if(automaticSizing && currentSize.height > AUTOMATIC_MAX_HEIGHT) {
+            automaticSizing = false;
+        }
+
+        int desiredHeight = LINE_HEIGHT + (playerStats.size() * LINE_HEIGHT);
+        if(automaticSizing) {
+            currentSize.width = Math.max(currentSize.width, MIN_SIZE.width);
+            currentSize.height = Math.min(AUTOMATIC_MAX_HEIGHT, Math.max(desiredHeight, MIN_SIZE.height));
+        }
+        else {
+            currentSize.width = Math.max(currentSize.width, MIN_SIZE.width);
+            currentSize.height = Math.max(currentSize.height, MIN_SIZE.height);
+        }
+
         final Rectangle overlayBounds = this.getBounds();
-        final int barHeight = 20;
-        final int avatarSize = showAvatars ? barHeight : 0; // Adjust avatar size based on showAvatars
-        final int spacing = 0; // Remove all padding between bars
-        int yPosition = 0;
+        final int avatarSize = showAvatars ? LINE_HEIGHT : 0; // Adjust avatar size based on showAvatars
 
-        int totalDamage = playerStats.stream().mapToInt(PlayerStats::getDamage).sum();
-        int maxDamage = playerStats.stream().mapToInt(PlayerStats::getDamage).max().orElse(1); // Avoid division by zero
-
-        graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-
-        // Set OSRS font for the header
         graphics.setFont(FontManager.getRunescapeSmallFont());
-        FontMetrics headerMetrics = graphics.getFontMetrics();
-
-        // Calculate the total height of the overlay
-        int totalHeight = barHeight + (playerStats.size() * (barHeight + spacing));
+        FontMetrics metrics = graphics.getFontMetrics();
 
         // Draw the background for the entire overlay with adjusted transparency
         graphics.setColor(new Color(50, 50, 50, 120)); // Semi-transparent gray background
@@ -132,44 +122,40 @@ public class DamageOverlay extends OverlayPanel {
 
         // Draw the header background with adjusted transparency
         graphics.setColor(new Color(30, 30, 30, 209)); // Slightly darker semi-transparent background
-        graphics.fillRect(0, 0, currentSize.width, barHeight);
+        graphics.fillRect(0, 0, currentSize.width, LINE_HEIGHT);
 
         // Position the settings icon in the header
-        Rectangle settingsIconBounds = null;
         if (settingsIcon != null) {
             int settingsIconX = currentSize.width - settingsIcon.getWidth() - 2; // 2px padding from the right
-            int settingsIconY = (barHeight - settingsIcon.getHeight()) / 2; // Vertically center the icon
+            int settingsIconY = (LINE_HEIGHT - settingsIcon.getHeight()) / 2; // Vertically center the icon
             graphics.drawImage(settingsIcon, settingsIconX, settingsIconY, null);
 
             // Calculate global coordinates by adding overlay's top-left corner
             int globalSettingsIconX = overlayBounds.x + settingsIconX;
             int globalSettingsIconY = overlayBounds.y + settingsIconY;
 
-            settingsIconBounds = new Rectangle(globalSettingsIconX, globalSettingsIconY, settingsIcon.getWidth(), settingsIcon.getHeight());
+            Rectangle settingsIconBounds = new Rectangle(globalSettingsIconX, globalSettingsIconY, settingsIcon.getWidth(), settingsIcon.getHeight());
 
             final Point mousePosition = client.getMouseCanvasPosition();
 
             if (settingsIconBounds.contains(mousePosition.getX(), mousePosition.getY())) {
-                tooltipManager.add(new Tooltip("Shift -> Right click for Damage Overlay settings"));
+                tooltipManager.add(new Tooltip("Right click for combat logger overlay settings"));
             }
         }
 
-        // Prepare font and metrics for bars
-        graphics.setFont(FontManager.getRunescapeSmallFont());
-        FontMetrics barMetrics = graphics.getFontMetrics();
-
         int availableFightNameWidth = currentSize.width - (settingsIcon != null ? settingsIcon.getWidth() + 6 : 6); // Adjust if settings icon is present
-        String truncatedFightName = truncateText("Damage: " + fightName, barMetrics, availableFightNameWidth);
+        String truncatedFightName = truncateText("Damage: " + fightName, metrics, availableFightNameWidth);
 
         // Position the header text vertically centered
-        int headerTextY = (barHeight - headerMetrics.getHeight()) / 2 + headerMetrics.getAscent();
+        int headerTextY = (LINE_HEIGHT - metrics.getHeight()) / 2 + metrics.getAscent();
 
         // Draw the header text
         graphics.setColor(Color.WHITE);
         graphics.drawString(truncatedFightName, 3, headerTextY); // Slight offset for readability
 
-        yPosition = barHeight + spacing;
-        int maxRows = Math.min(((int) Math.floor((double) currentSize.height - barHeight) / barHeight), playerStats.size());
+        int yPosition = LINE_HEIGHT;
+        int maxRows = Math.min(((int) Math.floor((double) currentSize.height - LINE_HEIGHT) / LINE_HEIGHT), playerStats.size());
+        int maxDamage = playerStats.stream().mapToInt(PlayerStats::getDamage).max().orElse(1); // Avoid division by zero
 
         // Render each damage bar
         for (var i = 0; i < maxRows; i++) {
@@ -180,7 +166,6 @@ public class DamageOverlay extends OverlayPanel {
             CombatLoggerConfig.SecondaryMetric secondaryMetric = this.config.secondaryMetric();
 
             // Calculate bar length proportionally
-            // Adjust the available width based on whether avatars are shown
             int availableBarWidth = showAvatars ? (currentSize.width - avatarSize) : currentSize.width;
             int barLength = (int) ((double) damage / maxDamage * availableBarWidth);
 
@@ -216,18 +201,14 @@ public class DamageOverlay extends OverlayPanel {
             int textX = showAvatars ? (barX + 5) : 5; // Text starts after avatar or with padding
 
             graphics.setColor(new Color(70, 70, 70, 120));
-            graphics.fillRect(barX, yPosition, availableBarWidth, barHeight);
+            graphics.fillRect(barX, yPosition, availableBarWidth, LINE_HEIGHT);
 
-            // Draw damage bar with adjusted transparency
+            // Damage bar
             Color semiTransparentPlayerColor = new Color(playerColor.getRed(), playerColor.getGreen(), playerColor.getBlue(), 165);
             graphics.setColor(semiTransparentPlayerColor);
-            graphics.fillRect(barX, yPosition, barLength, barHeight);
+            graphics.fillRect(barX, yPosition, barLength, LINE_HEIGHT);
 
-            // Draw player name
-            graphics.setColor(Color.WHITE);
-            String nameText = playerName;
-            int nameTextY = yPosition + ((barHeight - barMetrics.getHeight()) / 2) + barMetrics.getAscent();
-
+            // Metric
             String secondaryText = "";
             if (secondaryMetric == CombatLoggerConfig.SecondaryMetric.DPS) {
                 secondaryText = String.format("(%.2f, %.1f%%)", stats.getDps(), percentDamage);
@@ -235,32 +216,24 @@ public class DamageOverlay extends OverlayPanel {
             else if (secondaryMetric == CombatLoggerConfig.SecondaryMetric.TICKS) {
                 secondaryText = String.format("(%d, %.1f%%)", stats.getTicks(), percentDamage);
             }
+            int rowY = yPosition + ((LINE_HEIGHT - metrics.getHeight()) / 2) + metrics.getAscent();
 
+            // Damage text
+            graphics.setColor(Color.WHITE);
             String damageText = String.format("%d %s", damage, secondaryText);
+            int damageTextXPosition = currentSize.width - metrics.stringWidth(damageText) - 2; // 2 pixels padding from the right edge
+            graphics.drawString(damageText, damageTextXPosition, rowY);
 
-            // Calculate the width of the damage and DPS text to right-align it
-            int damageTextWidth = barMetrics.stringWidth(damageText);
-            int damageTextXPosition = currentSize.width - damageTextWidth - 2; // 2 pixels padding from the right edge
-
-            // Draw the damage and DPS text right-aligned
-            graphics.drawString(damageText, damageTextXPosition, nameTextY);
-
-            // Calculate available width for nameText to avoid overlapping with damageText
             int availableNameWidth = damageTextXPosition - textX - 5; // 5 pixels padding between name and damage
             if (availableNameWidth > 0) {
-                String truncatedNameText = truncateText(nameText, barMetrics, availableNameWidth);
-                graphics.drawString(truncatedNameText, textX, nameTextY);
-            } else {
-                // If there's no space, you might choose to skip drawing the name or handle it differently
-                log.warn("Not enough space to draw nameText for player: {}", playerName);
+                String truncatedNameText = truncateText(playerName, metrics, availableNameWidth);
+                graphics.drawString(truncatedNameText, textX, rowY);
             }
 
-            // Move y-position for the next bar
-            yPosition += barHeight + spacing;
+            yPosition += LINE_HEIGHT;
         }
         return new Dimension(currentSize.width, currentSize.height);
     }
-
 
     private BufferedImage loadImage(String path) {
         BufferedImage image = null;

@@ -332,8 +332,7 @@ public class FightManager
 
     public void recordDeath(DeathLog deathLog)
     {
-        if (!fights.isEmpty() && !fights.peekLast().isOver()
-                && fights.peekLast().getMainTarget().equals(deathLog.getTarget()))
+        if (!fights.isEmpty() && !fights.peekLast().isOver() && fights.peekLast().getMainTarget().equals(deathLog.getTarget()))
         {
             // The main fight target has died; end the fight
             fights.peekLast().setOver(true);
@@ -354,8 +353,7 @@ public class FightManager
             fights.add(newFight);
             selectedFight = newFight; // Set the new fight as the selected fight
         }
-        else if (message.startsWith("Challenge complete: Path of")
-                || message.startsWith("Challenge complete: The Wardens"))
+        else if (message.startsWith("Challenge complete: Path of") || message.startsWith("Challenge complete: The Wardens"))
         {
             if (!fights.isEmpty() && !fights.peekLast().isOver())
             {
