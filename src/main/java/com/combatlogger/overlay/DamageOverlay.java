@@ -53,6 +53,8 @@ public class DamageOverlay extends OverlayPanel {
     static final String IMAGE_DEFAULT_AVATAR_PATH = "/default_avatar.png";
     static final String IMAGE_SETTINGS_PATH = "/settings.png";
 
+
+
     @Inject
     public DamageOverlay(
             CombatLoggerPlugin plugin,
@@ -68,6 +70,7 @@ public class DamageOverlay extends OverlayPanel {
 
         setPosition(OverlayPosition.ABOVE_CHATBOX_RIGHT);
         setLayer(OverlayLayer.UNDER_WIDGETS);
+
 
         this.combatLoggerPlugin = plugin;
         this.config = config;
@@ -109,7 +112,6 @@ public class DamageOverlay extends OverlayPanel {
         final int avatarSize = showAvatars ? barHeight : 0; // Adjust avatar size based on showAvatars
         final int spacing = 0; // Remove all padding between bars
         int yPosition = 0;
-        int overlayWidth = currentSize.width;
 
         int totalDamage = playerStats.stream().mapToInt(PlayerStats::getDamage).sum();
         int maxDamage = playerStats.stream().mapToInt(PlayerStats::getDamage).max().orElse(1); // Avoid division by zero
@@ -121,24 +123,22 @@ public class DamageOverlay extends OverlayPanel {
         graphics.setFont(FontManager.getRunescapeSmallFont());
         FontMetrics headerMetrics = graphics.getFontMetrics();
 
-        int headerHeight = barHeight;
-
         // Calculate the total height of the overlay
-        int totalHeight = headerHeight + (playerStats.size() * (barHeight + spacing));
+        int totalHeight = barHeight + (playerStats.size() * (barHeight + spacing));
 
         // Draw the background for the entire overlay with adjusted transparency
         graphics.setColor(new Color(50, 50, 50, 120)); // Semi-transparent gray background
-        graphics.fillRect(0, 0, overlayWidth, totalHeight);
+        graphics.fillRect(0, 0, currentSize.width, currentSize.height);
 
         // Draw the header background with adjusted transparency
         graphics.setColor(new Color(30, 30, 30, 209)); // Slightly darker semi-transparent background
-        graphics.fillRect(0, 0, overlayWidth, headerHeight);
+        graphics.fillRect(0, 0, currentSize.width, barHeight);
 
         // Position the settings icon in the header
         Rectangle settingsIconBounds = null;
         if (settingsIcon != null) {
-            int settingsIconX = overlayWidth - settingsIcon.getWidth() - 2; // 2px padding from the right
-            int settingsIconY = (headerHeight - settingsIcon.getHeight()) / 2; // Vertically center the icon
+            int settingsIconX = currentSize.width - settingsIcon.getWidth() - 2; // 2px padding from the right
+            int settingsIconY = (barHeight - settingsIcon.getHeight()) / 2; // Vertically center the icon
             graphics.drawImage(settingsIcon, settingsIconX, settingsIconY, null);
 
             // Calculate global coordinates by adding overlay's top-left corner
@@ -158,20 +158,22 @@ public class DamageOverlay extends OverlayPanel {
         graphics.setFont(FontManager.getRunescapeSmallFont());
         FontMetrics barMetrics = graphics.getFontMetrics();
 
-        int availableFightNameWidth = overlayWidth - (settingsIcon != null ? settingsIcon.getWidth() + 6 : 6); // Adjust if settings icon is present
+        int availableFightNameWidth = currentSize.width - (settingsIcon != null ? settingsIcon.getWidth() + 6 : 6); // Adjust if settings icon is present
         String truncatedFightName = truncateText("Damage: " + fightName, barMetrics, availableFightNameWidth);
 
         // Position the header text vertically centered
-        int headerTextY = (headerHeight - headerMetrics.getHeight()) / 2 + headerMetrics.getAscent();
+        int headerTextY = (barHeight - headerMetrics.getHeight()) / 2 + headerMetrics.getAscent();
 
         // Draw the header text
         graphics.setColor(Color.WHITE);
         graphics.drawString(truncatedFightName, 3, headerTextY); // Slight offset for readability
 
-        yPosition = headerHeight + spacing;
+        yPosition = barHeight + spacing;
+        int maxRows = Math.min(((int) Math.floor((double) currentSize.height - barHeight) / barHeight), playerStats.size());
 
         // Render each damage bar
-        for (PlayerStats stats : playerStats) {
+        for (var i = 0; i < maxRows; i++) {
+            var stats = playerStats.get(i);
             String playerName = stats.getName();
             int damage = stats.getDamage();
             double percentDamage = stats.getPercentDamage(); // Already handled to avoid NaN
@@ -179,7 +181,7 @@ public class DamageOverlay extends OverlayPanel {
 
             // Calculate bar length proportionally
             // Adjust the available width based on whether avatars are shown
-            int availableBarWidth = showAvatars ? (overlayWidth - avatarSize) : overlayWidth;
+            int availableBarWidth = showAvatars ? (currentSize.width - avatarSize) : currentSize.width;
             int barLength = (int) ((double) damage / maxDamage * availableBarWidth);
 
             BufferedImage avatarImage = null;
@@ -238,7 +240,7 @@ public class DamageOverlay extends OverlayPanel {
 
             // Calculate the width of the damage and DPS text to right-align it
             int damageTextWidth = barMetrics.stringWidth(damageText);
-            int damageTextXPosition = overlayWidth - damageTextWidth - 2; // 2 pixels padding from the right edge
+            int damageTextXPosition = currentSize.width - damageTextWidth - 2; // 2 pixels padding from the right edge
 
             // Draw the damage and DPS text right-aligned
             graphics.drawString(damageText, damageTextXPosition, nameTextY);
@@ -256,8 +258,7 @@ public class DamageOverlay extends OverlayPanel {
             // Move y-position for the next bar
             yPosition += barHeight + spacing;
         }
-
-        return new Dimension(Math.max(200, currentSize.width), Math.max(40, currentSize.height));
+        return new Dimension(currentSize.width, currentSize.height);
     }
 
 

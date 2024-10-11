@@ -51,7 +51,6 @@ public interface CombatLoggerConfig extends Config
             section = damageMeterSection,
             position = 2
     )
-    //heart's not set on this color
     default Color selfDamageMeterColor() { return new Color(196,30,58); }
 
     /* Overlay Settings
@@ -76,7 +75,7 @@ public interface CombatLoggerConfig extends Config
     )
     default boolean showOverlayAvatar()
     {
-        return true;
+        return false;
     }
 
     @ConfigItem(
