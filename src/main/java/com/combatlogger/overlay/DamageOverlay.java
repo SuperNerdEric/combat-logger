@@ -11,6 +11,7 @@ import com.combatlogger.CombatLoggerConfig;
 import com.combatlogger.CombatLoggerPlugin;
 import com.combatlogger.model.Fight;
 import com.combatlogger.model.PlayerStats;
+import lombok.Setter;
 import net.runelite.client.plugins.party.PartyPluginService;
 import net.runelite.client.ui.overlay.*;
 import net.runelite.client.ui.overlay.components.ComponentConstants;
@@ -34,13 +35,16 @@ public class DamageOverlay extends OverlayPanel {
     private final BufferedImage defaultAvatar;
     private final BufferedImage settingsIcon;
     private final Map<String, BufferedImage> avatarCache = new ConcurrentHashMap<>();
+    @Setter private int opacity;
 
     static final String IMAGE_DEFAULT_AVATAR_PATH = "/default_avatar.png";
     static final String IMAGE_SETTINGS_PATH = "/settings.png";
-
     static final int LINE_HEIGHT = 20;
     static final Dimension MIN_SIZE = new Dimension((int) Math.floor((double) ComponentConstants.STANDARD_WIDTH / 2), LINE_HEIGHT * 2); //header + 1 row
     static final Dimension DEFAULT_SIZE = new Dimension((int) Math.floor(ComponentConstants.STANDARD_WIDTH * 1.5), LINE_HEIGHT * 4); //header + 3 rows
+    static final int DEFAULT_BACKGROUND_ALPHA = 120;
+    static final int DEFAULT_HEADER_ALPHA = 200;
+    static final int DEFAULT_BAR_ALPHA = 180;
 
     @Inject
     public DamageOverlay(
@@ -64,6 +68,7 @@ public class DamageOverlay extends OverlayPanel {
         this.tooltipManager = tooltipManager;
         this.client = client;
         this.fightManager = fightManager;
+        this.opacity = config.overlayOpacity();
 
         defaultAvatar = loadImage(IMAGE_DEFAULT_AVATAR_PATH);
         settingsIcon = loadImage(IMAGE_SETTINGS_PATH);
@@ -85,29 +90,31 @@ public class DamageOverlay extends OverlayPanel {
 
         String fightName = selectedFight.getFightName() + " (" + Fight.formatTime(selectedFight.getFightLengthTicks()) + ")";
         boolean showAvatars = config.showOverlayAvatar();
+        int overlayAlpha = (int) Math.round((opacity / 100.0) * 255);
+
         Dimension currentSize = this.getBounds().getSize();
 
         if(currentSize.height == 0 && currentSize.width == 0){
             currentSize = DEFAULT_SIZE;
         }
 
-        //ensure min heights are enforced
+        //ensure min height/width are enforced
         currentSize.width = Math.max(currentSize.width, MIN_SIZE.width);
         currentSize.height = Math.max(currentSize.height, MIN_SIZE.height);
-
-        final Rectangle overlayBounds = this.getBounds();
-        final int avatarSize = showAvatars ? LINE_HEIGHT : 0;
 
         graphics.setFont(FontManager.getRunescapeSmallFont());
         FontMetrics metrics = graphics.getFontMetrics();
 
         // Draw the background for the entire overlay with adjusted transparency
-        graphics.setColor(new Color(50, 50, 50, 120)); // Semi-transparent gray background
+        graphics.setColor(new Color(50, 50, 50, (int) Math.round((opacity / 100.0) * DEFAULT_BACKGROUND_ALPHA))); // Semi-transparent gray background
         graphics.fillRect(0, 0, currentSize.width, currentSize.height);
 
         // Draw the header background with adjusted transparency
-        graphics.setColor(new Color(30, 30, 30, 209)); // Slightly darker semi-transparent background
+        graphics.setColor(new Color(30, 30, 30, (int) Math.round((opacity / 100.0) * DEFAULT_HEADER_ALPHA))); // Slightly darker semi-transparent background
         graphics.fillRect(0, 0, currentSize.width, LINE_HEIGHT);
+
+        final Rectangle overlayBounds = this.getBounds();
+        final int avatarSize = showAvatars ? LINE_HEIGHT : 0;
 
         // Position the settings icon in the header
         if (settingsIcon != null) {
@@ -135,7 +142,7 @@ public class DamageOverlay extends OverlayPanel {
         int headerTextY = (LINE_HEIGHT - metrics.getHeight()) / 2 + metrics.getAscent();
 
         // Draw the header text
-        graphics.setColor(Color.WHITE);
+        graphics.setColor(new Color(255,255,255,(int) Math.round((opacity / 100.0) * 255)));
         graphics.drawString(truncatedFightName, 3, headerTextY);
 
         int yPosition = LINE_HEIGHT;
@@ -170,8 +177,7 @@ public class DamageOverlay extends OverlayPanel {
                 }
             }
 
-            // Get the player's color from FightManager
-            Color playerColor = fightManager.getPlayerColor(playerName);
+
 
             // Draw avatar or skip if avatars are hidden
             int avatarX = 0;
@@ -185,11 +191,20 @@ public class DamageOverlay extends OverlayPanel {
             int barX = showAvatars ? avatarSize : 0; // Bar starts after avatar if shown
             int textX = showAvatars ? (barX + 5) : 5; // Text starts after avatar or with padding
 
-            graphics.setColor(new Color(70, 70, 70, 120));
+            // Draw bar line
+            graphics.setColor(new Color(70, 70, 70, (int) Math.round((opacity / 100.0) * DEFAULT_BACKGROUND_ALPHA)));
             graphics.fillRect(barX, yPosition, availableBarWidth, LINE_HEIGHT);
 
-            // Damage bar
-            Color semiTransparentPlayerColor = new Color(playerColor.getRed(), playerColor.getGreen(), playerColor.getBlue(), 165);
+            // Get the player's color from FightManager
+            Color playerColor = fightManager.getPlayerColor(playerName);
+
+            // Draw Damage bar
+            Color semiTransparentPlayerColor = new Color(
+                    playerColor.getRed(),
+                    playerColor.getGreen(),
+                    playerColor.getBlue(),
+                    (int) Math.round((opacity / 100.0) * DEFAULT_BAR_ALPHA)
+            );
             graphics.setColor(semiTransparentPlayerColor);
             graphics.fillRect(barX, yPosition, barLength, LINE_HEIGHT);
 
@@ -204,7 +219,7 @@ public class DamageOverlay extends OverlayPanel {
             int rowY = yPosition + ((LINE_HEIGHT - metrics.getHeight()) / 2) + metrics.getAscent();
 
             // Damage text
-            graphics.setColor(Color.WHITE);
+            graphics.setColor(new Color(255,255,255,(int) Math.round((opacity / 100.0) * 255)));
             String damageText = String.format("%d %s", damage, secondaryText);
             int damageTextXPosition = currentSize.width - metrics.stringWidth(damageText) - 2; // 2 pixels padding from the right edge
             graphics.drawString(damageText, damageTextXPosition, rowY);

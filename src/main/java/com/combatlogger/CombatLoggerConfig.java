@@ -7,6 +7,7 @@ import java.awt.*;
 @ConfigGroup("combatlogger")
 public interface CombatLoggerConfig extends Config
 {
+    // SECTIONS
     @ConfigSection(
             position = 0,
             name = "Damage Meter",
@@ -56,7 +57,6 @@ public interface CombatLoggerConfig extends Config
     /* Overlay Settings
      * POSITIONS: 26-49
     * */
-
     @ConfigItem(
             keyName = "enableOverlay",
             name = "Enable Overlay",
@@ -66,7 +66,6 @@ public interface CombatLoggerConfig extends Config
     )
     default boolean enableOverlay() { return true; }
 
-    //Overlay
     @ConfigItem(
             keyName = "showOverlayAvatar",
             name = "Show Overlay Avatar",
@@ -91,6 +90,16 @@ public interface CombatLoggerConfig extends Config
     {
         return 5;
     }
+
+    @Range(max = 100)
+    @ConfigItem(
+            keyName = "overlayOpacity",
+            name = "Overlay Opacity",
+            description = "Adjusts the opacity of the overlay (0-100%)",
+            section = overlaySection,
+            position = 29
+    )
+    default int overlayOpacity() { return 100; }
 
     /* Debug Settings
      * POSITIONS: 51-74

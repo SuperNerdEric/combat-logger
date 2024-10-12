@@ -753,6 +753,10 @@ public class CombatLoggerPlugin extends Plugin
 			case "overlayTimeout":
 				resetOverlayTimeout();
 				break;
+
+			case "overlayOpacity":
+				damageOverlay.setOpacity(config.overlayOpacity());
+				break;
 		}
 	}
 
