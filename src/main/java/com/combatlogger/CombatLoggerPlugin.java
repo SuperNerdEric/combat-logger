@@ -62,7 +62,6 @@ public class CombatLoggerPlugin extends Plugin
 	public static final File DIRECTORY;
 	private static final String LOG_FILE_NAME = "combat_log";
 	public static File LOG_FILE;
-	private static final Logger log = LoggerFactory.getLogger(CombatLoggerPlugin.class); //REMOVE BEFORE FINISHING
 
 	private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("MM-dd-yyyy HH:mm:ss", Locale.ENGLISH);
 	private static final Pattern ENCOUNTER_PATTERN = Pattern.compile("(Wave|Duration|Challenge)", Pattern.CASE_INSENSITIVE);
@@ -240,12 +239,10 @@ public class CombatLoggerPlugin extends Plugin
 			inFight = true;
 			setOverlayVisible(true);
 			stopOverlayTimeout();
-			log.debug("Fight started. Overlay shown.");
 		} else if (!fightOngoing && inFight) {
 			// Fight has just ended
 			inFight = false;
 			resetOverlayTimeout();
-			log.debug("Fight ended. Overlay timeout reset.");
 		}
 
 		if (fightOngoing) {
@@ -256,7 +253,6 @@ public class CombatLoggerPlugin extends Plugin
 					|| (currentFight.getLastActivityTick() + 500 < client.getTickCount() && currentFight.getFightName().startsWith("Path of"))) {
 				currentFight.setOver(true);
 				damageOverlay.updateOverlay();
-				log.debug("Fight marked as over.");
 			}
 		} else {
 			panel.updatePanel();
@@ -601,14 +597,12 @@ public class CombatLoggerPlugin extends Plugin
 			if (!overlayVisible) {
 				overlayVisible = true;
 				overlayManager.add(damageOverlay);
-				log.debug("Overlay enabled and added to OverlayManager.");
 			}
 			resetOverlayTimeout();
 		} else {
 			if (overlayVisible) {
 				overlayVisible = false;
 				overlayManager.remove(damageOverlay);
-				log.debug("Overlay disabled and removed from OverlayManager.");
 			}
 			stopOverlayTimeout();
 		}
@@ -636,7 +630,6 @@ public class CombatLoggerPlugin extends Plugin
 		if (overlayTimeout != null) {
 			overlayTimeout.stop();
 			overlayTimeout = null;
-			log.debug("Overlay timeout stopped.");
 		}
 	}
 
@@ -650,7 +643,6 @@ public class CombatLoggerPlugin extends Plugin
 			overlayTimeout = new javax.swing.Timer(timeoutMS, _ev -> setOverlayVisible(false));
 			overlayTimeout.setRepeats(false); // Ensure the timer only runs once
 			overlayTimeout.start();
-			log.debug("Overlay timeout reset with timeout: {} ms", timeoutMS);
 		}
 	}
 

@@ -13,13 +13,13 @@ public class PlayerStats
 	private double dps;
 	private int ticks;
 	private double percentDamage;
-	private Color color; // New field for player color
+	private Color color;
 
 	public PlayerStats(String name, int damage, int ticks)
 	{
 		this.name = name;
 		this.damage = damage;
 		this.ticks = ticks;
-		this.color = null; // Initialize as null; will be set later
+		this.color = null;
 	}
 }

@@ -16,8 +16,7 @@ import com.combatlogger.model.Fight;
 import com.combatlogger.model.PlayerStats;
 import net.runelite.client.plugins.party.PartyPluginService;
 import net.runelite.client.ui.overlay.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import net.runelite.client.ui.overlay.components.ComponentConstants;
 import net.runelite.api.*;
 import net.runelite.api.Point;
 import net.runelite.client.party.PartyService;
@@ -28,7 +27,6 @@ import net.runelite.client.ui.overlay.tooltip.TooltipManager;
 import net.runelite.client.util.ImageUtil;
 
 public class DamageOverlay extends OverlayPanel {
-    private static final Logger log = LoggerFactory.getLogger(DamageOverlay.class);
     private final CombatLoggerPlugin combatLoggerPlugin;
     private final PartyService partyService;
     private final CombatLoggerConfig config;
@@ -39,7 +37,6 @@ public class DamageOverlay extends OverlayPanel {
     private final BufferedImage defaultAvatar;
     private final BufferedImage settingsIcon;
     private final Map<String, BufferedImage> avatarCache = new ConcurrentHashMap<>();
-    private boolean automaticSizing = true;
 
     // Image paths
     static final String IMAGE_DEFAULT_AVATAR_PATH = "/default_avatar.png";
@@ -47,8 +44,8 @@ public class DamageOverlay extends OverlayPanel {
 
     // Defaults
     static final int LINE_HEIGHT = 20;
-    static final Dimension MIN_SIZE = new Dimension(150, LINE_HEIGHT * 2); //header + 1 row
-    static final int AUTOMATIC_MAX_HEIGHT = LINE_HEIGHT * 6; //header + 5 rows
+    static final Dimension MIN_SIZE = new Dimension((int) Math.floor((double) ComponentConstants.STANDARD_WIDTH / 2), LINE_HEIGHT * 2); //header + 1 row
+    static final Dimension DEFAULT_SIZE = new Dimension((int) Math.floor(ComponentConstants.STANDARD_WIDTH * 1.5), LINE_HEIGHT * 4); //header + 3 rows
 
     @Inject
     public DamageOverlay(
@@ -64,7 +61,7 @@ public class DamageOverlay extends OverlayPanel {
 
         setPosition(OverlayPosition.ABOVE_CHATBOX_RIGHT);
         setLayer(OverlayLayer.UNDER_WIDGETS);
-        setPreferredSize(MIN_SIZE);
+        setPreferredSize(DEFAULT_SIZE);
 
         this.combatLoggerPlugin = plugin;
         this.config = config;
@@ -95,23 +92,16 @@ public class DamageOverlay extends OverlayPanel {
         boolean showAvatars = config.showOverlayAvatar();
         Dimension currentSize = this.getBounds().getSize();
 
-        //overlay has been resized beyond managed bounds, stop automatic height sizing
-        if(automaticSizing && currentSize.height > AUTOMATIC_MAX_HEIGHT) {
-            automaticSizing = false;
+        if(currentSize.height == 0 && currentSize.width == 0){
+            currentSize = DEFAULT_SIZE;
         }
 
-        int desiredHeight = LINE_HEIGHT + (playerStats.size() * LINE_HEIGHT);
-        if(automaticSizing) {
-            currentSize.width = Math.max(currentSize.width, MIN_SIZE.width);
-            currentSize.height = Math.min(AUTOMATIC_MAX_HEIGHT, Math.max(desiredHeight, MIN_SIZE.height));
-        }
-        else {
-            currentSize.width = Math.max(currentSize.width, MIN_SIZE.width);
-            currentSize.height = Math.max(currentSize.height, MIN_SIZE.height);
-        }
+        //ensure min heights are enforced
+        currentSize.width = Math.max(currentSize.width, MIN_SIZE.width);
+        currentSize.height = Math.max(currentSize.height, MIN_SIZE.height);
 
         final Rectangle overlayBounds = this.getBounds();
-        final int avatarSize = showAvatars ? LINE_HEIGHT : 0; // Adjust avatar size based on showAvatars
+        final int avatarSize = showAvatars ? LINE_HEIGHT : 0;
 
         graphics.setFont(FontManager.getRunescapeSmallFont());
         FontMetrics metrics = graphics.getFontMetrics();
@@ -151,11 +141,11 @@ public class DamageOverlay extends OverlayPanel {
 
         // Draw the header text
         graphics.setColor(Color.WHITE);
-        graphics.drawString(truncatedFightName, 3, headerTextY); // Slight offset for readability
+        graphics.drawString(truncatedFightName, 3, headerTextY);
 
         int yPosition = LINE_HEIGHT;
         int maxRows = Math.min(((int) Math.floor((double) currentSize.height - LINE_HEIGHT) / LINE_HEIGHT), playerStats.size());
-        int maxDamage = playerStats.stream().mapToInt(PlayerStats::getDamage).max().orElse(1); // Avoid division by zero
+        int maxDamage = playerStats.stream().mapToInt(PlayerStats::getDamage).max().orElse(1);
 
         // Render each damage bar
         for (var i = 0; i < maxRows; i++) {
@@ -236,18 +226,8 @@ public class DamageOverlay extends OverlayPanel {
     }
 
     private BufferedImage loadImage(String path) {
-        BufferedImage image = null;
-        try (InputStream is = getClass().getResourceAsStream(path)) {
-            if (is != null) {
-                image = ImageIO.read(is);
-            } else {
-                log.error("Image not found at path: {}", path);
-            }
-        }
-        catch (IOException e) {
-            log.error("Error loading image at path: {}", path, e);
-        }
-        return image;
+
+        return ImageUtil.loadImageResource(CombatLoggerPlugin.class, path);
     }
 
     /**
