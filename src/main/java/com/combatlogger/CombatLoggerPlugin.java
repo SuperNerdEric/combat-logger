@@ -729,15 +729,15 @@ public class CombatLoggerPlugin extends Plugin
 			return;
 		}
 
-        switch (event.getKey()) {
-            case "secondaryMetric":
-                panel.updatePanel();
-                break;
+		switch (event.getKey()) {
+			case "secondaryMetric":
+				panel.updatePanel();
+				break;
 
-            case "selfDamageMeterColor":
+			case "selfDamageMeterColor":
 				fightManager.clearPlayerColors();
 				panel.updatePanel();
-                break;
+				break;
 
 			case "enableOverlay":
 				if(config.enableOverlay()){
@@ -755,7 +755,7 @@ public class CombatLoggerPlugin extends Plugin
 			case "overlayTimeout":
 				resetOverlayTimeout();
 				break;
-        }
+		}
 	}
 
 	protected static String getCurrentTimestamp()
