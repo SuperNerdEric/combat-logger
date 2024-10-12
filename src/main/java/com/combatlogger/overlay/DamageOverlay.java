@@ -2,12 +2,9 @@ package com.combatlogger.overlay;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map;
-import javax.imageio.ImageIO;
 import javax.inject.Inject;
 import com.combatlogger.FightManager;
 import com.combatlogger.CombatLoggerConfig;
@@ -38,11 +35,9 @@ public class DamageOverlay extends OverlayPanel {
     private final BufferedImage settingsIcon;
     private final Map<String, BufferedImage> avatarCache = new ConcurrentHashMap<>();
 
-    // Image paths
     static final String IMAGE_DEFAULT_AVATAR_PATH = "/default_avatar.png";
     static final String IMAGE_SETTINGS_PATH = "/settings.png";
 
-    // Defaults
     static final int LINE_HEIGHT = 20;
     static final Dimension MIN_SIZE = new Dimension((int) Math.floor((double) ComponentConstants.STANDARD_WIDTH / 2), LINE_HEIGHT * 2); //header + 1 row
     static final Dimension DEFAULT_SIZE = new Dimension((int) Math.floor(ComponentConstants.STANDARD_WIDTH * 1.5), LINE_HEIGHT * 4); //header + 3 rows
