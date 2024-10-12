@@ -195,7 +195,7 @@ public class FightManager
     public void clearFights()
     {
         fights.clear();
-        selectedFight = null; // Clear the selected fight when clearing all fights
+        selectedFight = null;
         clearPlayerColors();  // Optionally clear player colors when clearing fights
     }
 
@@ -238,7 +238,7 @@ public class FightManager
     public void clearPlayerColors()
     {
         playerColors.clear();
-        colorIndex.set(0); // Reset the color index when clearing colors
+        colorIndex.set(0);
     }
 
     public void addDamage(DamageLog damageLog) {

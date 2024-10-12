@@ -20,7 +20,6 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.regex.Pattern;
 
 import static com.combatlogger.CombatLoggerPlugin.LOG_FILE;
 import static com.combatlogger.CombatLoggerPlugin.getCurrentTimestamp;
