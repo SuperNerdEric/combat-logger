@@ -1,26 +1,25 @@
-package com.combatlogger.panel;
+package com.combatlogger.model;
 
 import lombok.Getter;
 import lombok.Setter;
+import java.awt.Color;
 
 @Getter
 @Setter
 public class PlayerStats
 {
-	String name;
-
-	int damage;
-
-	double dps;
-
-	int ticks;
-
-	double percentDamage;
+	private String name;
+	private int damage;
+	private double dps;
+	private int ticks;
+	private double percentDamage;
+	private Color color;
 
 	public PlayerStats(String name, int damage, int ticks)
 	{
 		this.name = name;
 		this.damage = damage;
 		this.ticks = ticks;
+		this.color = null;
 	}
 }

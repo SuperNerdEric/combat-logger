@@ -1,12 +1,17 @@
 package com.combatlogger;
 
+import com.combatlogger.model.Fight;
 import com.combatlogger.model.logs.*;
+import com.combatlogger.overlay.DamageOverlay;
 import com.combatlogger.panel.CombatLoggerPanel;
 import com.combatlogger.util.AnimationIds;
+import com.combatlogger.util.BoundedQueue;
 import com.google.inject.Provides;
 import lombok.Getter;
 import com.combatlogger.messages.DamageMessage;
 import net.runelite.api.*;
+import net.runelite.api.Menu;
+import net.runelite.api.Point;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.*;
@@ -22,28 +27,33 @@ import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.party.PartyService;
 import net.runelite.client.party.WSClient;
 import net.runelite.client.plugins.Plugin;
+import net.runelite.client.plugins.PluginDependency;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.plugins.party.PartyPlugin;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.util.ImageUtil;
-
-
+import net.runelite.client.ui.overlay.OverlayManager;
+import org.apache.commons.lang3.ArrayUtils;
 import javax.inject.Inject;
+import java.awt.*;
 import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-
-import static com.combatlogger.util.BossNames.VERZIK_P1_END;
 import static com.combatlogger.util.HitSplatUtil.getHitsplatName;
+
+@PluginDependency(PartyPlugin.class)
 
 @PluginDescriptor(
 		name = "Combat Logger",
 		description = "Damage meter and logs combat events to a text file - Upload and analyze your logs at runelogs.com.",
 		tags = {"damage", "dps", "pvm", "tob", "theatre of blood", "toa", "tombs of amascut", "meter", "counter", "tick"}
 )
+
 public class CombatLoggerPlugin extends Plugin
 {
 	public static final String DIRECTORY_NAME = "combat_log";
@@ -86,6 +96,11 @@ public class CombatLoggerPlugin extends Plugin
 	private Set<Integer> playerAnimationChanges = new HashSet<>();
 	private int regionId = -1;
 
+	private boolean inFight = false;
+	private javax.swing.Timer overlayTimeout = null;
+	@Getter
+	private Boolean overlayVisible = false;
+
 	@Inject
 	private Client client;
 
@@ -103,6 +118,9 @@ public class CombatLoggerPlugin extends Plugin
 	private LogQueueManager logQueueManager;
 
 	@Inject
+	private FightManager fightManager;
+
+	@Inject
 	private ClientToolbar clientToolbar;
 
 	@Inject
@@ -113,6 +131,12 @@ public class CombatLoggerPlugin extends Plugin
 
 	@Inject
 	private PartyService party;
+
+	@Inject
+	private OverlayManager overlayManager;
+
+	@Inject
+	private DamageOverlay damageOverlay;
 
 	private CombatLoggerPanel panel;
 
@@ -134,12 +158,11 @@ public class CombatLoggerPlugin extends Plugin
 		clearLogs();
 	}
 
-
 	@Override
 	protected void startUp()
 	{
 		panel = injector.getInstance(CombatLoggerPanel.class);
-		logQueueManager.startUp(panel, eventBus);
+		logQueueManager.startUp(eventBus);
 
 		navButton = NavigationButton.builder()
 				.tooltip("Combat Logger")
@@ -154,6 +177,11 @@ public class CombatLoggerPlugin extends Plugin
 		boostedCombatStats = new BoostedCombatStats(client);
 		createLogFile();
 		wsClient.registerMessage(DamageMessage.class);
+
+		if(config.enableOverlay()){
+			setOverlayVisible(true);
+			resetOverlayTimeout();
+		}
 	}
 
 	@Override
@@ -166,7 +194,11 @@ public class CombatLoggerPlugin extends Plugin
 		clientToolbar.removeNavigation(navButton);
 		panel = null;
 		logQueueManager.shutDown(eventBus);
+		fightManager.shutDown();
+		// [Existing shutDown logic remains unchanged]
+		setOverlayVisible(false);
 	}
+
 
 	@Subscribe
 	public void onCommandExecuted(CommandExecuted commandExecuted)
@@ -197,6 +229,32 @@ public class CombatLoggerPlugin extends Plugin
 	@Subscribe
 	public void onGameTick(GameTick event)
 	{
+		Fight currentFight = fightManager.getLastFight();
+		boolean fightOngoing = currentFight != null && !currentFight.isOver();
+
+		if (fightOngoing && !inFight) {
+			// Fight has just started
+			inFight = true;
+			setOverlayVisible(true);
+			stopOverlayTimeout();
+		} else if (!fightOngoing && inFight) {
+			// Fight has just ended
+			inFight = false;
+			resetOverlayTimeout();
+		}
+
+		if (fightOngoing) {
+			currentFight.setFightLengthTicks(currentFight.getFightLengthTicks() + 1);
+			panel.updatePanel();
+
+			if ((currentFight.getLastActivityTick() + 100 < client.getTickCount() && !currentFight.getFightName().startsWith("Path of"))
+					|| (currentFight.getLastActivityTick() + 500 < client.getTickCount() && currentFight.getFightName().startsWith("Path of"))) {
+				currentFight.setOver(true);
+				damageOverlay.updateOverlay();
+			}
+		} else {
+			panel.updatePanel();
+		}
 		if (checkPlayerName && client.getLocalPlayer() != null && client.getLocalPlayer().getName() != null)
 		{
 			logPlayerName();
@@ -477,25 +535,6 @@ public class CombatLoggerPlugin extends Plugin
 	}
 
 	@Subscribe
-	public void onNpcSpawned(NpcSpawned npcSpawned)
-	{
-		NPC npc = npcSpawned.getNpc();
-
-		if (VERZIK_P1_END.contains(npc.getId()) && !panel.getFights().isEmpty() && !panel.getFights().peekLast().isOver())
-		{
-			// P1 Verzik doesn't die, so send a fake death event when it changes forms
-			logQueueManager.queue(
-					new DeathLog(
-							client.getTickCount(),
-							getCurrentTimestamp(),
-							String.format("%s dies", panel.getFights().peekLast().getMainTarget()),
-							panel.getFights().peekLast().getMainTarget()
-					)
-			);
-		}
-	}
-
-	@Subscribe
 	public void onVarbitChanged(VarbitChanged varbitChanged)
 	{
 		if (varbitChanged.getValue() != 30)
@@ -546,18 +585,178 @@ public class CombatLoggerPlugin extends Plugin
 		}
 	}
 
+	/**
+	 * Sets the overlay visibility based on the provided parameter.
+	 *
+	 * @param visible If true, the overlay is shown; if false, it is hidden.
+	 */
+	public void setOverlayVisible(boolean visible) {
+		if (visible && config.enableOverlay()) {
+			if (!overlayVisible) {
+				overlayVisible = true;
+				overlayManager.add(damageOverlay);
+			}
+			resetOverlayTimeout();
+		} else {
+			if (overlayVisible) {
+				overlayVisible = false;
+				overlayManager.remove(damageOverlay);
+			}
+			stopOverlayTimeout();
+		}
+	}
+
+	/**
+	 * Shows the overlay by setting its visibility to true.
+	 */
+	public void showOverlay() {
+		setOverlayVisible(true);
+	}
+
+	/**
+	 * Hides the overlay by setting its visibility to false.
+	 */
+	public void hideOverlay() {
+		setOverlayVisible(false);
+	}
+
+
+	/**
+	 * Stops and nullifies the existing overlay timer.
+	 */
+	public void stopOverlayTimeout() {
+		if (overlayTimeout != null) {
+			overlayTimeout.stop();
+			overlayTimeout = null;
+		}
+	}
+
+	/**
+	 * Resets the overlay timer to hide the overlay after the configured timeout.
+	 */
+	public void resetOverlayTimeout() {
+		stopOverlayTimeout(); // Ensure no existing timer is running
+		if (config.enableOverlay()) {
+			var timeoutMS = config.overlayTimeout() * 60 * 1000; // Convert minutes to milliseconds
+			overlayTimeout = new javax.swing.Timer(timeoutMS, _ev -> setOverlayVisible(false));
+			overlayTimeout.setRepeats(false); // Ensure the timer only runs once
+			overlayTimeout.start();
+		}
+	}
+
+
+	@Subscribe
+	public void onMenuOpened(MenuOpened event) {
+		Point mousePosition = client.getMouseCanvasPosition();
+		Rectangle overlayBounds = damageOverlay.getBounds();
+
+		if (overlayBounds.contains(mousePosition.getX(), mousePosition.getY())) {
+			// Get existing menu entries
+			MenuEntry[] existingEntries = event.getMenuEntries();
+
+			// Use a dynamic list to hold new entries
+			List<MenuEntry> newEntries = new ArrayList<>();
+
+			// Retrieve the current fights
+			BoundedQueue<Fight> fights = fightManager.getFights();
+
+			// Only add the "Select Fight" entry if there are active fights
+			if (fights != null && !fights.isEmpty()) {
+				// Create the main "Select Fight" menu entry
+				MenuEntry selectFightEntry = client.createMenuEntry(-2)
+						.setOption("Select Fight")
+						.setTarget("")
+						.setType(MenuAction.RUNELITE)
+						.setDeprioritized(true);
+
+				// Create a submenu for selecting a fight
+				Menu submenu = selectFightEntry.createSubMenu();
+				Iterator<Fight> iterator = fights.descendingIterator();
+
+				int i = -1;
+				while (iterator.hasNext()) {
+					Fight fight = iterator.next();
+					submenu.createMenuEntry(i)
+							.setOption(fight.getFightName() + " (" + Fight.formatTime(fight.getFightLengthTicks()) + ")")
+							.setTarget("")
+							.setType(MenuAction.RUNELITE)
+							.onClick((e) -> fightManager.setCurrentFight(fight));
+					i--;
+				}
+
+				// Add the "Select Fight" entry to the new entries list first
+				newEntries.add(selectFightEntry);
+			}
+
+			// Add "Hide Overlay" entry next
+			newEntries.add(client.createMenuEntry(-3)
+					.setOption("Hide Overlay")
+					.setTarget("")
+					.setType(MenuAction.RUNELITE)
+					.onClick((me) -> hideOverlay()));
+
+			// Add "Clear All Fights" entry next
+			newEntries.add(client.createMenuEntry(-4)
+					.setOption("Clear All Fights")
+					.setTarget("")
+					.setType(MenuAction.RUNELITE)
+					.onClick((me) -> fightManager.clearFights()));
+
+			// Add "End Current Fight" entry last
+			newEntries.add(client.createMenuEntry(-5)
+					.setOption("End Current Fight")
+					.setTarget("")
+					.setType(MenuAction.RUNELITE)
+					.onClick((me) -> fightManager.endCurrentFight()));
+
+			// Convert the new entries list to an array
+			MenuEntry[] newEntriesArray = newEntries.toArray(new MenuEntry[0]);
+
+			// Combine existing entries with new entries and set the menu
+			client.setMenuEntries(ArrayUtils.addAll(existingEntries, newEntriesArray));
+		}
+	}
+
+
+
 	@Subscribe
 	public void onConfigChanged(ConfigChanged event)
 	{
-
 		if (!event.getGroup().equals("combatlogger"))
 		{
 			return;
 		}
 
-		if (event.getKey().equals("secondaryMetric"))
-		{
-			panel.configChanged();
+		switch (event.getKey()) {
+			case "secondaryMetric":
+				panel.updatePanel();
+				break;
+
+			case "selfDamageMeterColor":
+				fightManager.clearPlayerColors();
+				panel.updatePanel();
+				break;
+
+			case "enableOverlay":
+				if(config.enableOverlay()){
+					showOverlay();
+				}
+				else {
+					hideOverlay();
+				}
+				break;
+
+			case "showOverlayAvatar":
+				damageOverlay.clearAvatarCache();
+				break;
+
+			case "overlayTimeout":
+				resetOverlayTimeout();
+				break;
+
+			case "overlayOpacity":
+				damageOverlay.setOpacity(config.overlayOpacity());
+				break;
 		}
 	}
 
