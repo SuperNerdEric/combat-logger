@@ -35,6 +35,7 @@ import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.util.ImageUtil;
 import net.runelite.client.ui.overlay.OverlayManager;
 import org.apache.commons.lang3.ArrayUtils;
+
 import javax.inject.Inject;
 import java.awt.*;
 import java.io.File;
@@ -44,6 +45,7 @@ import java.util.*;
 import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
 import static com.combatlogger.util.HitSplatUtil.getHitsplatName;
 
 @PluginDependency(PartyPlugin.class)
@@ -178,7 +180,8 @@ public class CombatLoggerPlugin extends Plugin
 		createLogFile();
 		wsClient.registerMessage(DamageMessage.class);
 
-		if(config.enableOverlay()){
+		if (config.enableOverlay())
+		{
 			setOverlayVisible(true);
 			resetOverlayTimeout();
 		}
@@ -232,27 +235,34 @@ public class CombatLoggerPlugin extends Plugin
 		Fight currentFight = fightManager.getLastFight();
 		boolean fightOngoing = currentFight != null && !currentFight.isOver();
 
-		if (fightOngoing && !inFight) {
+		if (fightOngoing && !inFight)
+		{
 			// Fight has just started
 			inFight = true;
 			setOverlayVisible(true);
 			stopOverlayTimeout();
-		} else if (!fightOngoing && inFight) {
+		}
+		else if (!fightOngoing && inFight)
+		{
 			// Fight has just ended
 			inFight = false;
 			resetOverlayTimeout();
 		}
 
-		if (fightOngoing) {
+		if (fightOngoing)
+		{
 			currentFight.setFightLengthTicks(currentFight.getFightLengthTicks() + 1);
 			panel.updatePanel();
 
 			if ((currentFight.getLastActivityTick() + 100 < client.getTickCount() && !currentFight.getFightName().startsWith("Path of"))
-					|| (currentFight.getLastActivityTick() + 500 < client.getTickCount() && currentFight.getFightName().startsWith("Path of"))) {
+					|| (currentFight.getLastActivityTick() + 500 < client.getTickCount() && currentFight.getFightName().startsWith("Path of")))
+			{
 				currentFight.setOver(true);
 				damageOverlay.updateOverlay();
 			}
-		} else {
+		}
+		else
+		{
 			panel.updatePanel();
 		}
 		if (checkPlayerName && client.getLocalPlayer() != null && client.getLocalPlayer().getName() != null)
@@ -545,7 +555,8 @@ public class CombatLoggerPlugin extends Plugin
 		if (TOB_ORBS_VARBITS.contains(varbitChanged.getVarbitId()) && isWipe(TOB_ORBS_VARBITS))
 		{
 			logQueueManager.queue("Theatre of Blood Wipe");
-		} else if (TOA_ORBS_VARBITS.contains(varbitChanged.getVarbitId()) && isWipe(TOA_ORBS_VARBITS))
+		}
+		else if (TOA_ORBS_VARBITS.contains(varbitChanged.getVarbitId()) && isWipe(TOA_ORBS_VARBITS))
 		{
 			logQueueManager.queue("Tombs of Amascut Wipe");
 		}
@@ -590,15 +601,21 @@ public class CombatLoggerPlugin extends Plugin
 	 *
 	 * @param visible If true, the overlay is shown; if false, it is hidden.
 	 */
-	public void setOverlayVisible(boolean visible) {
-		if (visible && config.enableOverlay()) {
-			if (!overlayVisible) {
+	public void setOverlayVisible(boolean visible)
+	{
+		if (visible && config.enableOverlay())
+		{
+			if (!overlayVisible)
+			{
 				overlayVisible = true;
 				overlayManager.add(damageOverlay);
 			}
 			resetOverlayTimeout();
-		} else {
-			if (overlayVisible) {
+		}
+		else
+		{
+			if (overlayVisible)
+			{
 				overlayVisible = false;
 				overlayManager.remove(damageOverlay);
 			}
@@ -609,14 +626,16 @@ public class CombatLoggerPlugin extends Plugin
 	/**
 	 * Shows the overlay by setting its visibility to true.
 	 */
-	public void showOverlay() {
+	public void showOverlay()
+	{
 		setOverlayVisible(true);
 	}
 
 	/**
 	 * Hides the overlay by setting its visibility to false.
 	 */
-	public void hideOverlay() {
+	public void hideOverlay()
+	{
 		setOverlayVisible(false);
 	}
 
@@ -624,8 +643,10 @@ public class CombatLoggerPlugin extends Plugin
 	/**
 	 * Stops and nullifies the existing overlay timer.
 	 */
-	public void stopOverlayTimeout() {
-		if (overlayTimeout != null) {
+	public void stopOverlayTimeout()
+	{
+		if (overlayTimeout != null)
+		{
 			overlayTimeout.stop();
 			overlayTimeout = null;
 		}
@@ -634,9 +655,11 @@ public class CombatLoggerPlugin extends Plugin
 	/**
 	 * Resets the overlay timer to hide the overlay after the configured timeout.
 	 */
-	public void resetOverlayTimeout() {
+	public void resetOverlayTimeout()
+	{
 		stopOverlayTimeout(); // Ensure no existing timer is running
-		if (config.enableOverlay()) {
+		if (config.enableOverlay())
+		{
 			var timeoutMS = config.overlayTimeout() * 60 * 1000; // Convert minutes to milliseconds
 			overlayTimeout = new javax.swing.Timer(timeoutMS, _ev -> setOverlayVisible(false));
 			overlayTimeout.setRepeats(false); // Ensure the timer only runs once
@@ -646,11 +669,13 @@ public class CombatLoggerPlugin extends Plugin
 
 
 	@Subscribe
-	public void onMenuOpened(MenuOpened event) {
+	public void onMenuOpened(MenuOpened event)
+	{
 		Point mousePosition = client.getMouseCanvasPosition();
 		Rectangle overlayBounds = damageOverlay.getBounds();
 
-		if (overlayBounds.contains(mousePosition.getX(), mousePosition.getY())) {
+		if (overlayBounds.contains(mousePosition.getX(), mousePosition.getY()))
+		{
 			// Get existing menu entries
 			MenuEntry[] existingEntries = event.getMenuEntries();
 
@@ -661,7 +686,8 @@ public class CombatLoggerPlugin extends Plugin
 			BoundedQueue<Fight> fights = fightManager.getFights();
 
 			// Only add the "Select Fight" entry if there are active fights
-			if (fights != null && !fights.isEmpty()) {
+			if (fights != null && !fights.isEmpty())
+			{
 				// Create the main "Select Fight" menu entry
 				MenuEntry selectFightEntry = client.createMenuEntry(-3)
 						.setOption("Select Fight")
@@ -674,7 +700,8 @@ public class CombatLoggerPlugin extends Plugin
 				Iterator<Fight> iterator = fights.descendingIterator();
 
 				int i = -1;
-				while (iterator.hasNext()) {
+				while (iterator.hasNext())
+				{
 					Fight fight = iterator.next();
 					submenu.createMenuEntry(i)
 							.setOption(fight.getFightName() + " (" + Fight.formatTime(fight.getFightLengthTicks()) + ")")
@@ -711,7 +738,6 @@ public class CombatLoggerPlugin extends Plugin
 	}
 
 
-
 	@Subscribe
 	public void onConfigChanged(ConfigChanged event)
 	{
@@ -720,7 +746,8 @@ public class CombatLoggerPlugin extends Plugin
 			return;
 		}
 
-		switch (event.getKey()) {
+		switch (event.getKey())
+		{
 			case "secondaryMetric":
 				panel.updatePanel();
 				break;
@@ -731,10 +758,12 @@ public class CombatLoggerPlugin extends Plugin
 				break;
 
 			case "enableOverlay":
-				if(config.enableOverlay()){
+				if (config.enableOverlay())
+				{
 					showOverlay();
 				}
-				else {
+				else
+				{
 					hideOverlay();
 				}
 				break;
@@ -763,7 +792,8 @@ public class CombatLoggerPlugin extends Plugin
 		if (actor instanceof NPC)
 		{
 			return ((NPC) actor).getId() + "-" + ((NPC) actor).getIndex();
-		} else
+		}
+		else
 		{
 			return actor.getName();
 		}

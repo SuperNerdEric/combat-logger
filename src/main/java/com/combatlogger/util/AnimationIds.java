@@ -179,7 +179,8 @@ public class AnimationIds
 				{
 					ticks = 5;
 					break;
-				} else if (weaponId == BOW_OF_FAERDHINEN || weaponId == BOW_OF_FAERDHINEN_C || weaponId == BOW_OF_FAERDHINEN_C_25869 || weaponId == BOW_OF_FAERDHINEN_C_25884
+				}
+				else if (weaponId == BOW_OF_FAERDHINEN || weaponId == BOW_OF_FAERDHINEN_C || weaponId == BOW_OF_FAERDHINEN_C_25869 || weaponId == BOW_OF_FAERDHINEN_C_25884
 						|| weaponId == BOW_OF_FAERDHINEN_C_25886 || weaponId == BOW_OF_FAERDHINEN_C_25888 || weaponId == BOW_OF_FAERDHINEN_C_25890
 						|| weaponId == BOW_OF_FAERDHINEN_C_25892 || weaponId == BOW_OF_FAERDHINEN_C_25894 || weaponId == BOW_OF_FAERDHINEN_C_25896)
 				{
@@ -202,7 +203,8 @@ public class AnimationIds
 				{
 					ticks = 7;
 					break;
-				} else if (weaponId == LEAFBLADED_SPEAR)
+				}
+				else if (weaponId == LEAFBLADED_SPEAR)
 				{
 					ticks = 5;
 					break;
@@ -340,10 +342,12 @@ public class AnimationIds
 				if (weaponId == DRAGON_WARHAMMER || weaponId == DRAGON_WARHAMMER_CR)
 				{
 					ticks = 6;
-				} else if (weaponId == HAM_JOINT)
+				}
+				else if (weaponId == HAM_JOINT)
 				{
 					ticks = 3;
-				} else // Pickaxe and axe
+				}
+				else // Pickaxe and axe
 				{
 					ticks = 5;
 				}

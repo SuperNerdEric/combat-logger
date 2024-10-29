@@ -2,6 +2,7 @@ package com.combatlogger.model;
 
 import lombok.Getter;
 import lombok.Setter;
+
 import java.awt.Color;
 
 @Getter
