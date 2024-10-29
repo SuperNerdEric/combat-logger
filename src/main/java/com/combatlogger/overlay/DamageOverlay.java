@@ -39,7 +39,7 @@ public class DamageOverlay extends OverlayPanel {
 
     static final String IMAGE_DEFAULT_AVATAR_PATH = "/default_avatar.png";
     static final String IMAGE_SETTINGS_PATH = "/settings.png";
-    static final int LINE_HEIGHT = 20;
+    static final int LINE_HEIGHT = 16;
     static final Dimension MIN_SIZE = new Dimension((int) Math.floor((double) ComponentConstants.STANDARD_WIDTH / 2), LINE_HEIGHT * 2); //header + 1 row
     static final Dimension DEFAULT_SIZE = new Dimension((int) Math.floor(ComponentConstants.STANDARD_WIDTH * 1.5), LINE_HEIGHT * 4); //header + 3 rows
     static final int DEFAULT_BACKGROUND_ALPHA = 120;
@@ -59,7 +59,7 @@ public class DamageOverlay extends OverlayPanel {
         super(plugin);
 
         setPosition(OverlayPosition.ABOVE_CHATBOX_RIGHT);
-        setLayer(OverlayLayer.UNDER_WIDGETS);
+        setLayer(OverlayLayer.ABOVE_WIDGETS);
         setPreferredSize(DEFAULT_SIZE);
 
         this.combatLoggerPlugin = plugin;
@@ -143,7 +143,7 @@ public class DamageOverlay extends OverlayPanel {
 
         // Draw the header text
         graphics.setColor(new Color(255,255,255,(int) Math.round((opacity / 100.0) * 255)));
-        graphics.drawString(truncatedFightName, 3, headerTextY);
+        graphics.drawString(truncatedFightName, 3, headerTextY + 1);
 
         int yPosition = LINE_HEIGHT;
         int maxRows = Math.min(((int) Math.floor((double) currentSize.height - LINE_HEIGHT) / LINE_HEIGHT), playerStats.size());
@@ -222,12 +222,12 @@ public class DamageOverlay extends OverlayPanel {
             graphics.setColor(new Color(255,255,255,(int) Math.round((opacity / 100.0) * 255)));
             String damageText = String.format("%d %s", damage, secondaryText);
             int damageTextXPosition = currentSize.width - metrics.stringWidth(damageText) - 2; // 2 pixels padding from the right edge
-            graphics.drawString(damageText, damageTextXPosition, rowY);
+            graphics.drawString(damageText, damageTextXPosition, rowY + 1);
 
             int availableNameWidth = damageTextXPosition - textX - 5; // 5 pixels padding between name and damage
             if (availableNameWidth > 0) {
                 String truncatedNameText = truncateText(playerName, metrics, availableNameWidth);
-                graphics.drawString(truncatedNameText, textX, rowY);
+                graphics.drawString(truncatedNameText, textX, rowY + 1);
             }
 
             yPosition += LINE_HEIGHT;
