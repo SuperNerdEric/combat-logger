@@ -1,6 +1,8 @@
 package com.combatlogger;
 
+import com.combatlogger.messages.DamageMessage;
 import com.combatlogger.model.Fight;
+import com.combatlogger.model.TrackedPartyMember;
 import com.combatlogger.model.logs.*;
 import com.combatlogger.overlay.DamageOverlay;
 import com.combatlogger.panel.CombatLoggerPanel;
@@ -8,10 +10,9 @@ import com.combatlogger.util.AnimationIds;
 import com.combatlogger.util.BoundedQueue;
 import com.google.inject.Provides;
 import lombok.Getter;
-import com.combatlogger.messages.DamageMessage;
-import net.runelite.api.*;
 import net.runelite.api.Menu;
 import net.runelite.api.Point;
+import net.runelite.api.*;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.*;
@@ -24,6 +25,7 @@ import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.EventBus;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
+import net.runelite.client.party.PartyMember;
 import net.runelite.client.party.PartyService;
 import net.runelite.client.party.WSClient;
 import net.runelite.client.plugins.Plugin;
@@ -32,8 +34,8 @@ import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.party.PartyPlugin;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
-import net.runelite.client.util.ImageUtil;
 import net.runelite.client.ui.overlay.OverlayManager;
+import net.runelite.client.util.ImageUtil;
 import org.apache.commons.lang3.ArrayUtils;
 
 import javax.inject.Inject;
@@ -41,8 +43,8 @@ import java.awt.*;
 import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
-import java.util.*;
 import java.util.List;
+import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -91,6 +93,8 @@ public class CombatLoggerPlugin extends Plugin
 	}
 
 	private boolean checkPlayerName = false;
+
+	private Map<String, TrackedPartyMember> trackedPartyMembers = new HashMap<>();
 	private BoostedCombatStats boostedCombatStats;
 	private boolean statChangeLogScheduled;
 	private int hitpointsXpLastUpdated = -1;
@@ -277,7 +281,10 @@ public class CombatLoggerPlugin extends Plugin
 		}
 
 		List<Player> players = client.getPlayers();
-		players.forEach(this::checkBlowpipe);
+		players.forEach(player -> {
+			this.checkBlowpipe(player);
+			this.logPosition(player);
+		});
 
 		for (int playerId : playerAnimationChanges)
 		{
@@ -294,6 +301,7 @@ public class CombatLoggerPlugin extends Plugin
 		playerAnimationChanges.clear();
 
 		checkPlayerRegion();
+		validatePartyMembers();
 	}
 
 	private void checkBlowpipe(Player player)
@@ -306,6 +314,36 @@ public class CombatLoggerPlugin extends Plugin
 			// So we just check every player if they have the blowpipe animation at frame 0
 			logAttackAnimation(animationId, player);
 		}
+	}
+
+	private void logPosition(Player player)
+	{
+		if (party.getMemberByDisplayName(player.getName()) == null && !client.getLocalPlayer().getName().equals(player.getName()))
+		{
+			return;
+		}
+
+		TrackedPartyMember trackedPartyMember = trackedPartyMembers.getOrDefault(player.getName(), new TrackedPartyMember());
+		WorldPoint currentWorldPoint = WorldPoint.fromLocalInstance(client, LocalPoint.fromWorld(client, player.getWorldLocation()));
+
+		if (currentWorldPoint.equals(trackedPartyMember.getWorldPoint()))
+		{
+			// Only log if their position has changed
+			return;
+		}
+
+		trackedPartyMember.setWorldPoint(currentWorldPoint);
+		trackedPartyMembers.put(player.getName(), trackedPartyMember);
+		logQueueManager.queue(String.format("%s position (%d, %d, %d)", player.getName(), currentWorldPoint.getX(), currentWorldPoint.getY(), currentWorldPoint.getPlane()));
+	}
+
+	/**
+	 * Remove any trackedPartyMembers that are no longer in the party
+	 */
+	private void validatePartyMembers()
+	{
+		List<String> partyMemberNames = party.getMembers().stream().map(PartyMember::getDisplayName).collect(Collectors.toList());
+		trackedPartyMembers.keySet().removeIf(name -> !partyMemberNames.contains(name) && !client.getLocalPlayer().getName().equals(name));
 	}
 
 	private void logAttackAnimation(int animationId, Player player)
