@@ -57,8 +57,7 @@ public class HitSplatUtil
 			"CYAN_UP",
 			"PRAYER_DRAIN",
 			"SANITY_DRAIN",
-			"SANITY_RESTORE",
-			"BURN"
+			"SANITY_RESTORE"
 	);
 
 	public static String getHitsplatName(int hitsplatType)
