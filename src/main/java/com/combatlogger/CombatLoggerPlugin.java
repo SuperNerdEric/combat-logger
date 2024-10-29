@@ -198,7 +198,6 @@ public class CombatLoggerPlugin extends Plugin
 		panel = null;
 		logQueueManager.shutDown(eventBus);
 		fightManager.shutDown();
-		// [Existing shutDown logic remains unchanged]
 		setOverlayVisible(false);
 	}
 
