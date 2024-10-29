@@ -60,13 +60,12 @@ public class FightManager
 	@Inject
 	private ChatMessageManager chatMessageManager;
 
-	// Added field to keep track of the selected fight
 	@Setter
 	private Fight selectedFight;
 
 	// Define the default color list
 	private final Color[] defaultColors = {
-			Color.decode("#C41E3A"), // Red
+			Color.decode("#8B0F10"), // Red
 			Color.decode("#A330C9"), // Dark Magenta
 			Color.decode("#FF7C0A"), // Orange
 			Color.decode("#33937F"), // Dark Emerald
@@ -81,7 +80,6 @@ public class FightManager
 			Color.decode("#C69B6D")  // Tan
 	};
 
-	// Atomic integer to keep track of the next color index
 	private final AtomicInteger colorIndex = new AtomicInteger(0);
 
 	@Inject
@@ -260,7 +258,6 @@ public class FightManager
 		}
 
 		Fight currentFight;
-		boolean newFightStarted = false;
 
 		if (fights.isEmpty() || fights.peekLast().isOver())
 		{
@@ -277,7 +274,6 @@ public class FightManager
 			currentFight.setMainTarget(damageLog.getTarget());
 			fights.add(currentFight);
 			selectedFight = currentFight; // Set the new fight as the selected fight
-			newFightStarted = true;
 		}
 		else
 		{
@@ -345,9 +341,6 @@ public class FightManager
 		playerData.addActivityTicks(attackAnimationLog.getTargetName(),
 				AnimationIds.getTicks(attackAnimationLog.getAnimationId(), attackAnimationLog.getWeaponId()));
 		currentFight.getPlayerDataMap().put(attackAnimationLog.getSource(), playerData);
-
-		// Increment fight length ticks to reflect ongoing fight
-		currentFight.setFightLengthTicks(currentFight.getFightLengthTicks() + 1);
 	}
 
 	public void recordDeath(DeathLog deathLog)
@@ -453,7 +446,6 @@ public class FightManager
 		}
 	}
 
-	// Added methods to get and set the selected fight
 	public Fight getSelectedFight()
 	{
 		if (selectedFight == null && !fights.isEmpty())

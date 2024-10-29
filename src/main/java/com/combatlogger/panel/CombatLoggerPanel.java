@@ -17,9 +17,7 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Objects;
 
 import static com.combatlogger.CombatLoggerPlugin.DIRECTORY;
 
@@ -33,6 +31,7 @@ public class CombatLoggerPanel extends PluginPanel
 	private final DamageDrillDownPanel drillDownPanel;
 
 	private final JComboBox<Fight> fightsComboBox = new JComboBox<>();
+
 	@Getter
 	private Fight selectedFight = null;
 
@@ -46,12 +45,6 @@ public class CombatLoggerPanel extends PluginPanel
 		STOP_ICON = new ImageIcon(ImageUtil.loadImageResource(CombatLoggerPlugin.class, "/stop.png"));
 		CLOSE_ICON = new ImageIcon(ImageUtil.loadImageResource(CombatLoggerPlugin.class, "/close.png"));
 	}
-
-	// **Added Cached Fights List**
-	private List<Fight> cachedFights = new ArrayList<>();
-
-	// **Optional: Debounce Timer**
-	private javax.swing.Timer debounceTimer;
 
 	@Inject
 	public CombatLoggerPanel(CombatLoggerConfig config, FightManager fightManager)
@@ -106,7 +99,7 @@ public class CombatLoggerPanel extends PluginPanel
 		fightsComboBox.setRenderer(new PlaceholderComboBoxRenderer("Start a fight..."));
 		fightsComboBox.addActionListener(e -> {
 			selectedFight = (Fight) fightsComboBox.getSelectedItem();
-			fightManager.setSelectedFight(selectedFight); // Set the selected fight in FightManager
+			fightManager.setSelectedFight(selectedFight);
 			if (selectedFight != null)
 			{
 				List<PlayerStats> playerStats = fightManager.getPlayerDamageForFight(selectedFight);
@@ -122,13 +115,6 @@ public class CombatLoggerPanel extends PluginPanel
 
 		showOverviewPanel();
 		add(damageMeterPanel);
-
-		// **Initialize Debounce Timer to one tick**
-		debounceTimer = new javax.swing.Timer(600, e -> {
-			updateFightsComboBox(fightManager.getFights());
-			debounceTimer.stop();
-		});
-		debounceTimer.setRepeats(false);
 	}
 
 	public void showOverviewPanel()
@@ -156,13 +142,20 @@ public class CombatLoggerPanel extends PluginPanel
 
 	public void updateFightsComboBox(BoundedQueue<Fight> fights)
 	{
-		fightsComboBox.removeAllItems();
-
+		List<Fight> updatedFights = new ArrayList<>();
 		// Reverse order so the newest fights are first
-		Iterator<Fight> iterator = fights.descendingIterator();
-		while (iterator.hasNext())
+		fights.descendingIterator().forEachRemaining(updatedFights::add);
+
+		List<Fight> existingFights = new ArrayList<>();
+		for (int i = 0; i < fightsComboBox.getItemCount(); i++)
 		{
-			fightsComboBox.addItem(iterator.next());
+			existingFights.add(fightsComboBox.getItemAt(i));
+		}
+
+		if (!existingFights.equals(updatedFights))
+		{
+			fightsComboBox.removeAllItems();
+			updatedFights.forEach(fightsComboBox::addItem);
 		}
 
 		// Set the selected item in the combo box
@@ -193,34 +186,23 @@ public class CombatLoggerPanel extends PluginPanel
 	}
 
 	/**
-	 * This method now checks if there are changes in the fights list before updating the combo box.
-	 * Using a debounce timer to limit update frequency.
+	 * Update the panel with the latest data
 	 */
 	public void updatePanel()
 	{
-		SwingUtilities.invokeLater(() -> {
-			// **Convert BoundedQueue<Fight> to List<Fight>**
-			List<Fight> currentFights = new ArrayList<>(fightManager.getFights());
+		selectedFight = fightManager.getSelectedFight();
+		if (selectedFight != null)
+		{
+			List<PlayerStats> playerStats = fightManager.getPlayerDamageForFight(selectedFight);
+			updateOverviewPanel(playerStats);
+			updateCurrentFightLength(Fight.formatTime(selectedFight.getFightLengthTicks()));
+		}
+		else
+		{
+			updateCurrentFightLength("00:00");
+		}
 
-			// **Check if fights have changed**
-			if (!currentFights.equals(cachedFights))
-			{
-				debounceTimer.restart();
-				cachedFights = new ArrayList<>(currentFights);
-			}
-
-			selectedFight = fightManager.getSelectedFight(); // Get the selected fight
-			if (selectedFight != null)
-			{
-				List<PlayerStats> playerStats = fightManager.getPlayerDamageForFight(selectedFight);
-				updateOverviewPanel(playerStats);
-				updateCurrentFightLength(Fight.formatTime(selectedFight.getFightLengthTicks()));
-			}
-			else
-			{
-				updateCurrentFightLength("00:00");
-			}
-		});
+		updateFightsComboBox(fightManager.getFights());
 	}
 }
 

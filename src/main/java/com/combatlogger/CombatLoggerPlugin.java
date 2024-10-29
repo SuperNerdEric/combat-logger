@@ -251,19 +251,18 @@ public class CombatLoggerPlugin extends Plugin
 		if (fightOngoing)
 		{
 			currentFight.setFightLengthTicks(currentFight.getFightLengthTicks() + 1);
-			panel.updatePanel();
 
 			if ((currentFight.getLastActivityTick() + 100 < client.getTickCount() && !currentFight.getFightName().startsWith("Path of"))
 					|| (currentFight.getLastActivityTick() + 500 < client.getTickCount() && currentFight.getFightName().startsWith("Path of")))
 			{
+				// It's been 1 minute (or 5 minutes in a ToA path) without any activity. End the fight
 				currentFight.setOver(true);
 				damageOverlay.updateOverlay();
 			}
 		}
-		else
-		{
-			panel.updatePanel();
-		}
+
+		panel.updatePanel();
+
 		if (checkPlayerName && client.getLocalPlayer() != null && client.getLocalPlayer().getName() != null)
 		{
 			logPlayerName();
