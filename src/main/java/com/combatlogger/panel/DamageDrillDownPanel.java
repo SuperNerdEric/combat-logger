@@ -27,9 +27,9 @@ public class DamageDrillDownPanel extends DamageBarsPanel
 	public DamageDrillDownPanel(CombatLoggerPanel parentPanel, CombatLoggerConfig config, FightManager fightManager)
 	{
 		super(parentPanel, config, fightManager);
-        this.fightManager = fightManager;
+		this.fightManager = fightManager;
 
-        JButton backButton = parentPanel.createButton(BACK_ICON, "Back to Overview", parentPanel::showOverviewPanel);
+		JButton backButton = parentPanel.createButton(BACK_ICON, "Back to Overview", parentPanel::showOverviewPanel);
 		backButton.setPreferredSize(new Dimension(22, 25));
 		breakdownLabel.setHorizontalTextPosition(JLabel.LEFT);
 

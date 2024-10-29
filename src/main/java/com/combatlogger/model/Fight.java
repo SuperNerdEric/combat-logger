@@ -28,7 +28,8 @@ public class Fight
 		if (this.isOver)
 		{
 			return fightName + " - " + formatTime(fightLengthTicks);
-		} else
+		}
+		else
 		{
 			return fightName;
 		}

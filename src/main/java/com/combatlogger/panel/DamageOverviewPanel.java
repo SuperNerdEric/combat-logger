@@ -14,11 +14,12 @@ import java.util.List;
 public class DamageOverviewPanel extends DamageBarsPanel
 {
 	private final FightManager fightManager;
+
 	public DamageOverviewPanel(CombatLoggerPanel parentPanel, CombatLoggerConfig config, FightManager fightManager)
 	{
 		super(parentPanel, config, fightManager);
-        this.fightManager = fightManager;
-        topPanel.setLayout(new BorderLayout());
+		this.fightManager = fightManager;
+		topPanel.setLayout(new BorderLayout());
 		JLabel textLabel = new JLabel("Overview");
 		textLabel.setBorder(BorderFactory.createEmptyBorder(0, 5, 0, 0));
 		topPanel.add(textLabel);

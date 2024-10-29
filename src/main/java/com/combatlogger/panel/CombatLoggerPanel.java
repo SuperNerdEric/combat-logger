@@ -40,7 +40,8 @@ public class CombatLoggerPanel extends PluginPanel
 	private static final ImageIcon STOP_ICON;
 	private static final ImageIcon CLOSE_ICON;
 
-	static {
+	static
+	{
 		FOLDER_ICON = new ImageIcon(ImageUtil.loadImageResource(CombatLoggerPlugin.class, "/folder.png"));
 		STOP_ICON = new ImageIcon(ImageUtil.loadImageResource(CombatLoggerPlugin.class, "/stop.png"));
 		CLOSE_ICON = new ImageIcon(ImageUtil.loadImageResource(CombatLoggerPlugin.class, "/close.png"));
@@ -106,7 +107,8 @@ public class CombatLoggerPanel extends PluginPanel
 		fightsComboBox.addActionListener(e -> {
 			selectedFight = (Fight) fightsComboBox.getSelectedItem();
 			fightManager.setSelectedFight(selectedFight); // Set the selected fight in FightManager
-			if (selectedFight != null) {
+			if (selectedFight != null)
+			{
 				List<PlayerStats> playerStats = fightManager.getPlayerDamageForFight(selectedFight);
 				updateOverviewPanel(playerStats);
 			}
@@ -194,23 +196,28 @@ public class CombatLoggerPanel extends PluginPanel
 	 * This method now checks if there are changes in the fights list before updating the combo box.
 	 * Using a debounce timer to limit update frequency.
 	 */
-	public void updatePanel() {
+	public void updatePanel()
+	{
 		SwingUtilities.invokeLater(() -> {
 			// **Convert BoundedQueue<Fight> to List<Fight>**
-            List<Fight> currentFights = new ArrayList<>(fightManager.getFights());
+			List<Fight> currentFights = new ArrayList<>(fightManager.getFights());
 
 			// **Check if fights have changed**
-			if (!currentFights.equals(cachedFights)) {
+			if (!currentFights.equals(cachedFights))
+			{
 				debounceTimer.restart();
 				cachedFights = new ArrayList<>(currentFights);
 			}
 
 			selectedFight = fightManager.getSelectedFight(); // Get the selected fight
-			if (selectedFight != null) {
+			if (selectedFight != null)
+			{
 				List<PlayerStats> playerStats = fightManager.getPlayerDamageForFight(selectedFight);
 				updateOverviewPanel(playerStats);
 				updateCurrentFightLength(Fight.formatTime(selectedFight.getFightLengthTicks()));
-			} else {
+			}
+			else
+			{
 				updateCurrentFightLength("00:00");
 			}
 		});

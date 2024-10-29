@@ -11,7 +11,7 @@ public class AttackAnimationLog extends Log
 	private final int animationId;
 	private final int weaponId;
 
-	public AttackAnimationLog(int tickCount, String timestamp, String message,  String source, String target, String targetName, int animationId, int weaponId)
+	public AttackAnimationLog(int tickCount, String timestamp, String message, String source, String target, String targetName, int animationId, int weaponId)
 	{
 		super(tickCount, timestamp, message);
 		this.source = source;
