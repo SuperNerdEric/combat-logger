@@ -663,7 +663,7 @@ public class CombatLoggerPlugin extends Plugin
 			// Only add the "Select Fight" entry if there are active fights
 			if (fights != null && !fights.isEmpty()) {
 				// Create the main "Select Fight" menu entry
-				MenuEntry selectFightEntry = client.createMenuEntry(-2)
+				MenuEntry selectFightEntry = client.createMenuEntry(-3)
 						.setOption("Select Fight")
 						.setTarget("")
 						.setType(MenuAction.RUNELITE)
@@ -680,20 +680,13 @@ public class CombatLoggerPlugin extends Plugin
 							.setOption(fight.getFightName() + " (" + Fight.formatTime(fight.getFightLengthTicks()) + ")")
 							.setTarget("")
 							.setType(MenuAction.RUNELITE)
-							.onClick((e) -> fightManager.setCurrentFight(fight));
+							.onClick((e) -> fightManager.setSelectedFight(fight));
 					i--;
 				}
 
 				// Add the "Select Fight" entry to the new entries list first
 				newEntries.add(selectFightEntry);
 			}
-
-			// Add "Hide Overlay" entry next
-			newEntries.add(client.createMenuEntry(-3)
-					.setOption("Hide Overlay")
-					.setTarget("")
-					.setType(MenuAction.RUNELITE)
-					.onClick((me) -> hideOverlay()));
 
 			// Add "Clear All Fights" entry next
 			newEntries.add(client.createMenuEntry(-4)
