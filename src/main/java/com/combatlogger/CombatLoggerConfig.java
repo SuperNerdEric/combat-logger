@@ -59,7 +59,7 @@ public interface CombatLoggerConfig extends Config
 	)
 	default Color selfDamageMeterColor()
 	{
-		return new Color(196, 30, 58);
+		return new Color(139, 15, 16);
 	}
 
 	/* Overlay Settings

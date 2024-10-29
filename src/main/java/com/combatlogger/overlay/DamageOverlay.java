@@ -47,7 +47,7 @@ public class DamageOverlay extends OverlayPanel
 	static final Dimension DEFAULT_SIZE = new Dimension((int) Math.floor(ComponentConstants.STANDARD_WIDTH * 1.5), LINE_HEIGHT * 4); //header + 3 rows
 	static final int DEFAULT_BACKGROUND_ALPHA = 120;
 	static final int DEFAULT_HEADER_ALPHA = 200;
-	static final int DEFAULT_BAR_ALPHA = 180;
+	static final int DEFAULT_BAR_ALPHA = 255;
 
 	@Inject
 	public DamageOverlay(
@@ -63,7 +63,7 @@ public class DamageOverlay extends OverlayPanel
 		super(plugin);
 
 		setPosition(OverlayPosition.ABOVE_CHATBOX_RIGHT);
-		setLayer(OverlayLayer.ABOVE_WIDGETS);
+		setPriority(PRIORITY_HIGHEST);
 		setPreferredSize(DEFAULT_SIZE);
 
 		this.combatLoggerPlugin = plugin;
@@ -143,7 +143,7 @@ public class DamageOverlay extends OverlayPanel
 
 			if (settingsIconBounds.contains(mousePosition.getX(), mousePosition.getY()))
 			{
-				tooltipManager.add(new Tooltip("Right click for combat logger overlay settings"));
+				tooltipManager.add(new Tooltip("Right click for Combat Logger overlay settings"));
 			}
 		}
 
