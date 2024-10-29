@@ -42,6 +42,7 @@ public class AnimationIds
 			9544, // Keris partisan of corruption spec
 			1067, // Claw stab
 			7514, // Claw spec
+			11140, // Burning claws spec
 			1658, // Whip
 			2890, // Arclight spec
 			3294, // Abyssal dagger slash
@@ -204,7 +205,7 @@ public class AnimationIds
 					ticks = 7;
 					break;
 				}
-				else if (weaponId == LEAFBLADED_SPEAR)
+				else if (weaponId == LEAFBLADED_SPEAR || weaponId == NOXIOUS_HALBERD)
 				{
 					ticks = 5;
 					break;
@@ -233,6 +234,7 @@ public class AnimationIds
 				}
 			case 1067: // Claw stab
 			case 7514: // Claw spec
+			case 11140: // Burning claws spec
 			case 1658: // Whip
 			case 2890: // Arclight spec
 			case 3294: // Abyssal dagger slash
@@ -275,7 +277,7 @@ public class AnimationIds
 
 			// 5 Tick Animations (and alternatives)
 			case 393: // Staff bash
-				if (weaponId == DRAGON_CLAWS || weaponId == DRAGON_CLAWS_CR || weaponId == 29577 || weaponId == BONE_STAFF)
+				if (weaponId == DRAGON_CLAWS || weaponId == DRAGON_CLAWS_CR || weaponId == BURNING_CLAWS || weaponId == BONE_STAFF)
 				{
 					ticks = 4;
 					break;
@@ -389,6 +391,11 @@ public class AnimationIds
 			case 406: // 2h crush
 			case 407: // 2h slash
 			case 1203: // Chally spec
+				if (weaponId == NOXIOUS_HALBERD)
+				{
+					ticks = 5;
+					break;
+				}
 			case 2066: // Dharok's greataxe slash
 			case 2067: // Dharok's greataxe crush
 			case 1666: // Granite maul block
