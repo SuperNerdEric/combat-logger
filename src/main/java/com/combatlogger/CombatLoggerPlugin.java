@@ -710,7 +710,7 @@ public class CombatLoggerPlugin extends Plugin
 		Point mousePosition = client.getMouseCanvasPosition();
 		Rectangle overlayBounds = damageOverlay.getBounds();
 
-		if (overlayBounds.contains(mousePosition.getX(), mousePosition.getY()))
+		if (overlayVisible && overlayBounds.contains(mousePosition.getX(), mousePosition.getY()))
 		{
 			// Get existing menu entries
 			MenuEntry[] existingEntries = event.getMenuEntries();
