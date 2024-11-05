@@ -5,6 +5,7 @@ import lombok.Setter;
 
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Getter
 @Setter
@@ -14,7 +15,7 @@ public class Fight
 
 	private String mainTarget; // <id>-<index>
 
-	private HashMap<String, PlayerData> playerDataMap = new HashMap<>();
+	private ConcurrentHashMap<String, PlayerData> playerDataMap = new ConcurrentHashMap<>();
 
 	private int fightLengthTicks = 0;
 
@@ -52,7 +53,7 @@ public class Fight
 		private final String name;
 
 		@Getter
-		private HashMap<String, PlayerTargetData> targetDataMap = new HashMap<>(); // key=target
+		private ConcurrentHashMap<String, PlayerTargetData> targetDataMap = new ConcurrentHashMap<>(); // key=target
 
 		public PlayerData(String name)
 		{

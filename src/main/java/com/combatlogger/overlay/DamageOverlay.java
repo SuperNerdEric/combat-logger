@@ -37,6 +37,10 @@ public class DamageOverlay extends OverlayPanel
 	private final BufferedImage defaultAvatar;
 	private final BufferedImage settingsIcon;
 	private final Map<String, BufferedImage> avatarCache = new ConcurrentHashMap<>();
+	private Fight cachedFight = null;
+	private int cachedFightLength = -1;
+	private List<PlayerStats> playerStatCache;
+
 	@Setter
 	private int opacity;
 
@@ -89,9 +93,24 @@ public class DamageOverlay extends OverlayPanel
 		Fight selectedFight = fightManager.getSelectedFight();
 		if (selectedFight == null)
 		{
+			// No fight is selected; reset cache and prevent rendering
+			cachedFight = null;
+			cachedFightLength = -1;
 			return null;
 		}
-		List<PlayerStats> playerStats = fightManager.getPlayerDamageForFight(selectedFight);
+
+		List<PlayerStats> playerStats;
+		if (selectedFight.equals(cachedFight) && selectedFight.getFightLengthTicks() == cachedFightLength)
+		{
+			playerStats = playerStatCache;
+		}
+		else
+		{
+			playerStats = playerStatCache = fightManager.getPlayerDamageForFight(selectedFight);
+			cachedFight = selectedFight;
+			cachedFightLength = selectedFight.getFightLengthTicks();
+		}
+
 		if (playerStats.isEmpty())
 		{
 			return null;
@@ -167,6 +186,13 @@ public class DamageOverlay extends OverlayPanel
 			var stats = playerStats.get(i);
 			String playerName = stats.getName();
 			int damage = stats.getDamage();
+
+			if (damage == 0)
+			{
+				//skip players with 0 damage
+				continue;
+			}
+
 			double percentDamage = stats.getPercentDamage(); // Already handled to avoid NaN
 			CombatLoggerConfig.SecondaryMetric secondaryMetric = this.config.secondaryMetric();
 
