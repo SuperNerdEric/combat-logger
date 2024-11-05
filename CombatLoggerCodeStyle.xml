@@ -1,3 +1,5 @@
+<!-- IntelliJ IDEA code style XML -->
+<!-- https://www.jetbrains.com/help/idea/configuring-code-style.html#import-export-schemes -->
 <code_scheme name="Combat Logger Style" version="173">
   <codeStyleSettings language="JAVA">
     <option name="BRACE_STYLE" value="2" />
