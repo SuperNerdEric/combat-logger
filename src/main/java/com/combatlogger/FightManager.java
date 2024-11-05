@@ -120,7 +120,8 @@ public class FightManager
 									.mapToInt(Fight.PlayerData.PlayerTargetData::getActivityTicks)
 									.sum();
 							return new PlayerStats(entry.getKey(), totalDamage, totalActivityTicks);
-						}
+						},
+						(existing, replacement) -> replacement // If a key collision occurs while mapping, include the replacement and discard existing
 				));
 
 		return calculatePlayerStats(fight, playerStatsMap);
