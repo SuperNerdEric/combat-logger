@@ -154,16 +154,6 @@ public class CombatLoggerPlugin extends Plugin
 		return configManager.getConfig(CombatLoggerConfig.class);
 	}
 
-	/**
-	 * Clear old logs when resetting config
-	 */
-	@Override
-	public void resetConfiguration()
-	{
-		super.resetConfiguration();
-		clearLogs();
-	}
-
 	@Override
 	protected void startUp()
 	{
@@ -866,16 +856,5 @@ public class CombatLoggerPlugin extends Plugin
 						.type(ChatMessageType.GAMEMESSAGE)
 						.runeLiteFormattedMessage("<col=cc0000>Combat Logger plugin is logging to .runelite\\combat_log</col>")
 						.build());
-	}
-
-	private void clearLogs()
-	{
-		for (File file : DIRECTORY.listFiles())
-		{
-			file.delete();
-		}
-
-		LOG_FILE = new File(DIRECTORY, LOG_FILE_NAME + "-" + System.currentTimeMillis() + ".txt");
-		createLogFile();
 	}
 }
