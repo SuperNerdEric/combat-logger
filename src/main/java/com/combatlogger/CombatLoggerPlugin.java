@@ -2,6 +2,7 @@ package com.combatlogger;
 
 import com.combatlogger.messages.DamageMessage;
 import com.combatlogger.model.Fight;
+import com.combatlogger.model.TrackedNpc;
 import com.combatlogger.model.TrackedPartyMember;
 import com.combatlogger.model.logs.*;
 import com.combatlogger.overlay.DamageOverlay;
@@ -49,6 +50,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.combatlogger.util.HitSplatUtil.getHitsplatName;
+import static com.combatlogger.util.NpcIdsToTrack.NPC_IDS_TO_TRACK;
 
 @PluginDependency(PartyPlugin.class)
 
@@ -95,6 +97,7 @@ public class CombatLoggerPlugin extends Plugin
 	private boolean checkPlayerName = false;
 
 	private Map<String, TrackedPartyMember> trackedPartyMembers = new HashMap<>();
+	private Map<String, TrackedNpc> trackedNpcs = new HashMap<>();
 	private BoostedCombatStats boostedCombatStats;
 	private boolean statChangeLogScheduled;
 	private int hitpointsXpLastUpdated = -1;
@@ -223,6 +226,32 @@ public class CombatLoggerPlugin extends Plugin
 	}
 
 	@Subscribe
+	public void onNpcDespawned(NpcDespawned event)
+	{
+		int npcId = event.getNpc().getId();
+		if (!NPC_IDS_TO_TRACK.contains(npcId))
+		{
+			return;
+		}
+		String key = npcId + "-" + event.getNpc().getIndex();
+		trackedNpcs.remove(key);
+		logQueueManager.queue(String.format("%s\tDESPAWNED", key));
+	}
+
+	@Subscribe
+	public void onNpcChanged(NpcChanged event)
+	{
+		int oldNpcId = event.getOld().getId();
+		if (!NPC_IDS_TO_TRACK.contains(oldNpcId))
+		{
+			return;
+		}
+		String key = oldNpcId + "-" + event.getNpc().getIndex();
+		trackedNpcs.remove(key);
+		logQueueManager.queue(String.format("%s\tDESPAWNED", key));
+	}
+
+	@Subscribe
 	public void onGameTick(GameTick event)
 	{
 		Fight currentFight = fightManager.getLastFight();
@@ -292,6 +321,11 @@ public class CombatLoggerPlugin extends Plugin
 
 		checkPlayerRegion();
 		validatePartyMembers();
+
+		List<NPC> npcs = client.getNpcs();
+		npcs.forEach(npc -> {
+			this.logPosition(npc);
+		});
 	}
 
 	private void checkBlowpipe(Player player)
@@ -324,7 +358,28 @@ public class CombatLoggerPlugin extends Plugin
 
 		trackedPartyMember.setWorldPoint(currentWorldPoint);
 		trackedPartyMembers.put(player.getName(), trackedPartyMember);
-		logQueueManager.queue(String.format("%s position (%d, %d, %d)", player.getName(), currentWorldPoint.getX(), currentWorldPoint.getY(), currentWorldPoint.getPlane()));
+		logQueueManager.queue(String.format("%s\tPOSITION\t(%d, %d, %d)", player.getName(), currentWorldPoint.getX(), currentWorldPoint.getY(), currentWorldPoint.getPlane()));
+	}
+
+	private void logPosition(NPC npc)
+	{
+		if (!NPC_IDS_TO_TRACK.contains(npc.getId()))
+		{
+			return;
+		}
+
+		TrackedNpc trackedNpc = trackedNpcs.getOrDefault(npc.getId() + "-" + npc.getIndex(), new TrackedNpc());
+		WorldPoint currentWorldPoint = WorldPoint.fromLocalInstance(client, LocalPoint.fromWorld(client, npc.getWorldLocation()));
+
+		if (currentWorldPoint.equals(trackedNpc.getWorldPoint()))
+		{
+			// Only log if their position has changed
+			return;
+		}
+
+		trackedNpc.setWorldPoint(currentWorldPoint);
+		trackedNpcs.put(npc.getId() + "-" + npc.getIndex(), trackedNpc);
+		logQueueManager.queue(String.format("%d-%d\tPOSITION\t(%d, %d, %d)", npc.getId(), npc.getIndex(), currentWorldPoint.getX(), currentWorldPoint.getY(), currentWorldPoint.getPlane()));
 	}
 
 	/**
@@ -831,7 +886,7 @@ public class CombatLoggerPlugin extends Plugin
 		{
 			LOG_FILE = new File(DIRECTORY, LOG_FILE_NAME + "-" + System.currentTimeMillis() + ".txt");
 			LOG_FILE.createNewFile();
-			logQueueManager.queue("Log Version 1.2.1");
+			logQueueManager.queue("Log Version 1.3.0");
 			if (client.getLocalPlayer() != null && client.getLocalPlayer().getName() != null)
 			{
 				logPlayerName();
