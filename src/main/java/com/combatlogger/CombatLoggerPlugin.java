@@ -1,6 +1,7 @@
 package com.combatlogger;
 
 import com.combatlogger.messages.DamageMessage;
+import com.combatlogger.messages.EquipmentMessage;
 import com.combatlogger.model.Fight;
 import com.combatlogger.model.TrackedNpc;
 import com.combatlogger.model.TrackedPartyMember;
@@ -29,6 +30,7 @@ import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.party.PartyMember;
 import net.runelite.client.party.PartyService;
 import net.runelite.client.party.WSClient;
+import net.runelite.client.party.messages.UserSync;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDependency;
 import net.runelite.client.plugins.PluginDescriptor;
@@ -176,6 +178,7 @@ public class CombatLoggerPlugin extends Plugin
 		boostedCombatStats = new BoostedCombatStats(client);
 		createLogFile();
 		wsClient.registerMessage(DamageMessage.class);
+		wsClient.registerMessage(EquipmentMessage.class);
 
 		if (config.enableOverlay())
 		{
@@ -191,6 +194,7 @@ public class CombatLoggerPlugin extends Plugin
 		playerAnimationChanges.clear();
 		regionId = -1;
 		wsClient.unregisterMessage(DamageMessage.class);
+		wsClient.unregisterMessage(EquipmentMessage.class);
 		clientToolbar.removeNavigation(navButton);
 		panel = null;
 		logQueueManager.shutDown(eventBus);
@@ -543,14 +547,48 @@ public class CombatLoggerPlugin extends Plugin
 
 		List<Integer> currentItemIds = Arrays.stream(equipContainer.getItems())
 				.map(Item::getId)
-				.filter(itemId -> itemId > 0)
 				.collect(Collectors.toList());
 
 		if (forceLogging || !Objects.equals(currentItemIds, previousItemIds))
 		{
+			if (party.isInParty())
+			{
+				EquipmentMessage equipmentMessage = new EquipmentMessage(currentItemIds);
+				clientThread.invokeLater(() -> party.send(equipmentMessage));
+			}
+
 			previousItemIds = currentItemIds;
-			logQueueManager.queue(String.format("Player equipment is %s", currentItemIds));
+			logQueueManager.queue(String.format("%s\tEQUIPMENT\t%s", client.getLocalPlayer().getName(), currentItemIds));
 		}
+	}
+
+	@Subscribe
+	public void onUserSync(final UserSync event)
+	{
+		clientThread.invokeAtTickEnd(() -> {
+			ItemContainer equipContainer = client.getItemContainer(InventoryID.EQUIPMENT);
+			List<Integer> currentItemIds = Arrays.stream(equipContainer.getItems())
+					.map(Item::getId)
+					.collect(Collectors.toList());
+			EquipmentMessage equipmentMessage = new EquipmentMessage(currentItemIds);
+			party.send(equipmentMessage);
+		});
+	}
+
+	@Subscribe
+	public void onEquipmentMessage(EquipmentMessage event)
+	{
+		PartyMember localMember = party.getLocalMember();
+		System.out.println("EquipmentMessage");
+		if (localMember == null || localMember.getMemberId() == event.getMemberId())
+		{
+			// Don't need to update logs from ourselves
+			return;
+		}
+
+		PartyMember eventMember = party.getMemberById(event.getMemberId());
+
+		logQueueManager.queue(String.format("%s\tEQUIPMENT\t%s", eventMember.getDisplayName(), event.getItemIds()));
 	}
 
 	@Subscribe
