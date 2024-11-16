@@ -123,7 +123,7 @@ public class LogQueueManager
 
 		if (localMember == null || localMember.getMemberId() == event.getMemberId())
 		{
-			// Don't need to update logs from ourself
+			// Don't need to update logs from ourselves
 			return;
 		}
 
