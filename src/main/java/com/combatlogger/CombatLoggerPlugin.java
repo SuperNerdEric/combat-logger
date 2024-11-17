@@ -634,7 +634,7 @@ public class CombatLoggerPlugin extends Plugin
 
 		PartyMember eventMember = party.getMemberById(event.getMemberId());
 
-		logQueueManager.queue(String.format("%s\tPRAYER\t%s", eventMember.getDisplayName(), event.getItemIds()));
+		logQueueManager.queue(String.format("%s\tPRAYERS\t%s", eventMember.getDisplayName(), event.getItemIds()));
 	}
 
 	@Subscribe
