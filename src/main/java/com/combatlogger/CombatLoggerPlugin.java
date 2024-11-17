@@ -549,6 +549,9 @@ public class CombatLoggerPlugin extends Plugin
 				.map(Item::getId)
 				.collect(Collectors.toList());
 
+		final int quiverAmmoId = client.getVarpValue(VarPlayer.DIZANAS_QUIVER_ITEM_ID);
+		currentItemIds.add(quiverAmmoId);
+
 		if (forceLogging || !Objects.equals(currentItemIds, previousItemIds))
 		{
 			if (party.isInParty())
@@ -570,6 +573,8 @@ public class CombatLoggerPlugin extends Plugin
 			List<Integer> currentItemIds = Arrays.stream(equipContainer.getItems())
 					.map(Item::getId)
 					.collect(Collectors.toList());
+			final int quiverAmmoId = client.getVarpValue(VarPlayer.DIZANAS_QUIVER_ITEM_ID);
+			currentItemIds.add(quiverAmmoId);
 			EquipmentMessage equipmentMessage = new EquipmentMessage(currentItemIds);
 			party.send(equipmentMessage);
 		});
@@ -666,6 +671,11 @@ public class CombatLoggerPlugin extends Plugin
 	@Subscribe
 	public void onVarbitChanged(VarbitChanged varbitChanged)
 	{
+		if (varbitChanged.getVarpId() == VarPlayer.DIZANAS_QUIVER_ITEM_ID)
+		{
+			logEquipment(false);
+		}
+
 		if (varbitChanged.getValue() != 30)
 		{
 			return;
