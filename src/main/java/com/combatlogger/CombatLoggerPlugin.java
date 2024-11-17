@@ -2,6 +2,7 @@ package com.combatlogger;
 
 import com.combatlogger.messages.DamageMessage;
 import com.combatlogger.messages.EquipmentMessage;
+import com.combatlogger.messages.PrayerMessage;
 import com.combatlogger.model.Fight;
 import com.combatlogger.model.TrackedNpc;
 import com.combatlogger.model.TrackedPartyMember;
@@ -103,6 +104,7 @@ public class CombatLoggerPlugin extends Plugin
 	private BoostedCombatStats boostedCombatStats;
 	private boolean statChangeLogScheduled;
 	private int hitpointsXpLastUpdated = -1;
+	private List<Integer> previousPrayers;
 	private List<Integer> previousItemIds;
 	private Set<Integer> playerAnimationChanges = new HashSet<>();
 	private int regionId = -1;
@@ -179,6 +181,7 @@ public class CombatLoggerPlugin extends Plugin
 		createLogFile();
 		wsClient.registerMessage(DamageMessage.class);
 		wsClient.registerMessage(EquipmentMessage.class);
+		wsClient.registerMessage(PrayerMessage.class);
 
 		if (config.enableOverlay())
 		{
@@ -195,6 +198,7 @@ public class CombatLoggerPlugin extends Plugin
 		regionId = -1;
 		wsClient.unregisterMessage(DamageMessage.class);
 		wsClient.unregisterMessage(EquipmentMessage.class);
+		wsClient.unregisterMessage(PrayerMessage.class);
 		clientToolbar.removeNavigation(navButton);
 		panel = null;
 		logQueueManager.shutDown(eventBus);
@@ -218,6 +222,7 @@ public class CombatLoggerPlugin extends Plugin
 						.runeLiteFormattedMessage(String.format("<col=cc0000>New combat log created: %s</col>", LOG_FILE.getName()))
 						.build());
 		logEquipment(true); // Normally ItemContainerChanged is fired on startup, so it's not necessary in createLogFile()
+		logPrayers(true);
 	}
 
 	@Subscribe
@@ -303,6 +308,8 @@ public class CombatLoggerPlugin extends Plugin
 			return;
 		}
 
+		logPrayers(false);
+
 		List<Player> players = client.getPlayers();
 		players.forEach(player -> {
 			this.checkBlowpipe(player);
@@ -330,6 +337,29 @@ public class CombatLoggerPlugin extends Plugin
 		npcs.forEach(npc -> {
 			this.logPosition(npc);
 		});
+	}
+
+	private void logPrayers(boolean forceLogging)
+	{
+		Player player = client.getLocalPlayer();
+		List<Integer> currentPrayers = new ArrayList<>();
+		for (Prayer prayer : Prayer.values())
+		{
+			if (client.isPrayerActive(prayer))
+			{
+				currentPrayers.add(prayer.getVarbit());
+			}
+		}
+		if (forceLogging || !Objects.equals(currentPrayers, previousPrayers))
+		{
+			if (party.isInParty())
+			{
+				PrayerMessage prayerMessage = new PrayerMessage(currentPrayers);
+				clientThread.invokeLater(() -> party.send(prayerMessage));
+			}
+			logQueueManager.queue(String.format("%s\tPRAYERS\t%s", player.getName(), currentPrayers));
+			previousPrayers = currentPrayers;
+		}
 	}
 
 	private void checkBlowpipe(Player player)
@@ -569,14 +599,11 @@ public class CombatLoggerPlugin extends Plugin
 	public void onUserSync(final UserSync event)
 	{
 		clientThread.invokeAtTickEnd(() -> {
-			ItemContainer equipContainer = client.getItemContainer(InventoryID.EQUIPMENT);
-			List<Integer> currentItemIds = Arrays.stream(equipContainer.getItems())
-					.map(Item::getId)
-					.collect(Collectors.toList());
-			final int quiverAmmoId = client.getVarpValue(VarPlayer.DIZANAS_QUIVER_ITEM_ID);
-			currentItemIds.add(quiverAmmoId);
-			EquipmentMessage equipmentMessage = new EquipmentMessage(currentItemIds);
+			EquipmentMessage equipmentMessage = new EquipmentMessage(previousItemIds);
 			party.send(equipmentMessage);
+
+			PrayerMessage prayerMessage = new PrayerMessage(previousPrayers);
+			party.send(prayerMessage);
 		});
 	}
 
@@ -584,7 +611,6 @@ public class CombatLoggerPlugin extends Plugin
 	public void onEquipmentMessage(EquipmentMessage event)
 	{
 		PartyMember localMember = party.getLocalMember();
-		System.out.println("EquipmentMessage");
 		if (localMember == null || localMember.getMemberId() == event.getMemberId())
 		{
 			// Don't need to update logs from ourselves
@@ -594,6 +620,21 @@ public class CombatLoggerPlugin extends Plugin
 		PartyMember eventMember = party.getMemberById(event.getMemberId());
 
 		logQueueManager.queue(String.format("%s\tEQUIPMENT\t%s", eventMember.getDisplayName(), event.getItemIds()));
+	}
+
+	@Subscribe
+	public void onPrayerMessage(PrayerMessage event)
+	{
+		PartyMember localMember = party.getLocalMember();
+		if (localMember == null || localMember.getMemberId() == event.getMemberId())
+		{
+			// Don't need to update logs from ourselves
+			return;
+		}
+
+		PartyMember eventMember = party.getMemberById(event.getMemberId());
+
+		logQueueManager.queue(String.format("%s\tPRAYER\t%s", eventMember.getDisplayName(), event.getItemIds()));
 	}
 
 	@Subscribe
