@@ -1,5 +1,7 @@
 package com.combatlogger;
 
+import com.combatlogger.messages.BaseCombatStatsMessage;
+import com.combatlogger.messages.BoostedCombatStatsMessage;
 import com.combatlogger.messages.DamageMessage;
 import com.combatlogger.messages.EquipmentMessage;
 import com.combatlogger.messages.PrayerMessage;
@@ -11,6 +13,7 @@ import com.combatlogger.overlay.DamageOverlay;
 import com.combatlogger.panel.CombatLoggerPanel;
 import com.combatlogger.util.AnimationIds;
 import com.combatlogger.util.BoundedQueue;
+import com.combatlogger.util.CombatStats;
 import com.google.inject.Provides;
 import lombok.Getter;
 import net.runelite.api.Menu;
@@ -101,8 +104,10 @@ public class CombatLoggerPlugin extends Plugin
 
 	private Map<String, TrackedPartyMember> trackedPartyMembers = new HashMap<>();
 	private Map<String, TrackedNpc> trackedNpcs = new HashMap<>();
-	private BoostedCombatStats boostedCombatStats;
-	private boolean statChangeLogScheduled;
+	private List<Integer> previousBaseStats;
+	private boolean baseStatChangeLogScheduled;
+	private List<Integer> previousBoostedStats;
+	private boolean boostedStatChangeLogScheduled;
 	private int hitpointsXpLastUpdated = -1;
 	private List<Integer> previousPrayers;
 	private List<Integer> previousItemIds;
@@ -177,9 +182,10 @@ public class CombatLoggerPlugin extends Plugin
 
 		DIRECTORY.mkdirs();
 		sendReminderMessage();
-		boostedCombatStats = new BoostedCombatStats(client);
 		createLogFile();
 		wsClient.registerMessage(DamageMessage.class);
+		wsClient.registerMessage(BaseCombatStatsMessage.class);
+		wsClient.registerMessage(BoostedCombatStatsMessage.class);
 		wsClient.registerMessage(EquipmentMessage.class);
 		wsClient.registerMessage(PrayerMessage.class);
 
@@ -193,10 +199,15 @@ public class CombatLoggerPlugin extends Plugin
 	@Override
 	protected void shutDown()
 	{
+		previousBaseStats = null;
+		previousBoostedStats = null;
+		previousPrayers = null;
 		previousItemIds = null;
 		playerAnimationChanges.clear();
 		regionId = -1;
 		wsClient.unregisterMessage(DamageMessage.class);
+		wsClient.unregisterMessage(BaseCombatStatsMessage.class);
+		wsClient.unregisterMessage(BoostedCombatStatsMessage.class);
 		wsClient.unregisterMessage(EquipmentMessage.class);
 		wsClient.unregisterMessage(PrayerMessage.class);
 		clientToolbar.removeNavigation(navButton);
@@ -494,22 +505,50 @@ public class CombatLoggerPlugin extends Plugin
 	@Subscribe
 	public void onStatChanged(StatChanged statChanged)
 	{
-		if (boostedCombatStats.statsChanged(client))
+		List<Integer> currentBaseStats = CombatStats.getBaseStats(client);
+		if (!Objects.equals(currentBaseStats, previousBaseStats))
 		{
-			boostedCombatStats.setStats(client);
-
-			// Many StatChanged events are fired on login and some boosts effect multiple stats (like brews)
+			previousBaseStats = currentBaseStats;
+			// Many StatChanged events are fired on login
 			// So we group them together to just get a single log message
-			if (!statChangeLogScheduled)
+			if (!baseStatChangeLogScheduled)
 			{
-				statChangeLogScheduled = true;
+				baseStatChangeLogScheduled = true;
 				clientThread.invokeLater(() ->
 				{
-					logQueueManager.queue(String.format("Boosted levels are %s", boostedCombatStats));
-					statChangeLogScheduled = false;
+					if (party.isInParty())
+					{
+						BaseCombatStatsMessage baseCombatStatsMessage = new BaseCombatStatsMessage(previousBaseStats);
+						clientThread.invokeLater(() -> party.send(baseCombatStatsMessage));
+					}
+					logQueueManager.queue(String.format("%s\tBASE_STATS\t%s", client.getLocalPlayer().getName(), previousBaseStats));
+					baseStatChangeLogScheduled = false;
 				});
 			}
 		}
+
+		List<Integer> currentBoostedStats = CombatStats.getBoostedStats(client);
+		if (!Objects.equals(currentBoostedStats, previousBoostedStats))
+		{
+			previousBoostedStats = currentBoostedStats;
+			// Many StatChanged events are fired on login and some boosts effect multiple stats (like brews)
+			// So we group them together to just get a single log message
+			if (!boostedStatChangeLogScheduled)
+			{
+				boostedStatChangeLogScheduled = true;
+				clientThread.invokeLater(() ->
+				{
+					if (party.isInParty())
+					{
+						BoostedCombatStatsMessage boostedCombatStatsMessage = new BoostedCombatStatsMessage(previousBoostedStats);
+						clientThread.invokeLater(() -> party.send(boostedCombatStatsMessage));
+					}
+					logQueueManager.queue(String.format("%s\tBOOSTED_STATS\t%s", client.getLocalPlayer().getName(), previousBoostedStats));
+					boostedStatChangeLogScheduled = false;
+				});
+			}
+		}
+
 		if (statChanged.getSkill() == Skill.HITPOINTS)
 		{
 			hitpointsXpLastUpdated = client.getTickCount();
@@ -574,7 +613,10 @@ public class CombatLoggerPlugin extends Plugin
 	private void logEquipment(boolean forceLogging)
 	{
 		ItemContainer equipContainer = client.getItemContainer(InventoryID.EQUIPMENT);
-
+		if (equipContainer == null)
+		{
+			return;
+		}
 		List<Integer> currentItemIds = Arrays.stream(equipContainer.getItems())
 				.map(Item::getId)
 				.collect(Collectors.toList());
@@ -604,6 +646,12 @@ public class CombatLoggerPlugin extends Plugin
 
 			PrayerMessage prayerMessage = new PrayerMessage(previousPrayers);
 			party.send(prayerMessage);
+
+			BaseCombatStatsMessage baseCombatStatsMessage = new BaseCombatStatsMessage(previousBaseStats);
+			party.send(baseCombatStatsMessage);
+
+			BoostedCombatStatsMessage boostedCombatStatsMessage = new BoostedCombatStatsMessage(previousBoostedStats);
+			party.send(boostedCombatStatsMessage);
 		});
 	}
 
@@ -635,6 +683,36 @@ public class CombatLoggerPlugin extends Plugin
 		PartyMember eventMember = party.getMemberById(event.getMemberId());
 
 		logQueueManager.queue(String.format("%s\tPRAYERS\t%s", eventMember.getDisplayName(), event.getItemIds()));
+	}
+
+	@Subscribe
+	public void onBaseCombatStatsMessage(BaseCombatStatsMessage event)
+	{
+		PartyMember localMember = party.getLocalMember();
+		if (localMember == null || localMember.getMemberId() == event.getMemberId())
+		{
+			// Don't need to update logs from ourselves
+			return;
+		}
+
+		PartyMember eventMember = party.getMemberById(event.getMemberId());
+
+		logQueueManager.queue(String.format("%s\tBASE_STATS\t%s", eventMember.getDisplayName(), event.getStats()));
+	}
+
+	@Subscribe
+	public void onBoostedCombatStatsMessage(BoostedCombatStatsMessage event)
+	{
+		PartyMember localMember = party.getLocalMember();
+		if (localMember == null || localMember.getMemberId() == event.getMemberId())
+		{
+			// Don't need to update logs from ourselves
+			return;
+		}
+
+		PartyMember eventMember = party.getMemberById(event.getMemberId());
+
+		logQueueManager.queue(String.format("%s\tBOOSTED_STATS\t%s", eventMember.getDisplayName(), event.getStats()));
 	}
 
 	@Subscribe
@@ -979,7 +1057,8 @@ public class CombatLoggerPlugin extends Plugin
 			if (client.getLocalPlayer() != null && client.getLocalPlayer().getName() != null)
 			{
 				logPlayerName();
-				logQueueManager.queue(String.format("Boosted levels are %s", boostedCombatStats));
+				logQueueManager.queue(String.format("%s\tBASE_STATS\t%s", client.getLocalPlayer().getName(), previousBaseStats));
+				logQueueManager.queue(String.format("%s\tBOOSTED_STATS\t%s", client.getLocalPlayer().getName(), previousBoostedStats));
 			}
 		}
 		catch (IOException e)
