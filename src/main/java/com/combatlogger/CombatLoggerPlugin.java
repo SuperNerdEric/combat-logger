@@ -204,6 +204,8 @@ public class CombatLoggerPlugin extends Plugin
 		previousPrayers = null;
 		previousItemIds = null;
 		playerAnimationChanges.clear();
+		trackedPartyMembers.clear();
+		trackedNpcs.clear();
 		regionId = -1;
 		wsClient.unregisterMessage(DamageMessage.class);
 		wsClient.unregisterMessage(BaseCombatStatsMessage.class);
