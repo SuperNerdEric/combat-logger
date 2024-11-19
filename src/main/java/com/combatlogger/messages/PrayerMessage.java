@@ -10,5 +10,5 @@ import java.util.List;
 @EqualsAndHashCode(callSuper = true)
 public class PrayerMessage extends PartyMemberMessage
 {
-	List<Integer> itemIds;
+	List<Integer> prayerIds;
 }

@@ -57,6 +57,7 @@ import java.util.stream.Collectors;
 
 import static com.combatlogger.util.HitSplatUtil.getHitsplatName;
 import static com.combatlogger.util.NpcIdsToTrack.NPC_IDS_TO_TRACK;
+import static com.combatlogger.util.OverheadToPrayer.HEADICON_TO_PRAYER_VARBIT;
 
 @PluginDependency(PartyPlugin.class)
 
@@ -327,6 +328,8 @@ public class CombatLoggerPlugin extends Plugin
 		players.forEach(player -> {
 			this.checkBlowpipe(player);
 			this.logPosition(player);
+			this.logMemberEquipment(player);
+			this.logMemberOverhead(player);
 		});
 
 		for (int playerId : playerAnimationChanges)
@@ -404,8 +407,70 @@ public class CombatLoggerPlugin extends Plugin
 		}
 
 		trackedPartyMember.setWorldPoint(currentWorldPoint);
+		if (player.getName().equals(client.getLocalPlayer().getName()))
+		{
+			trackedPartyMember.setUsingCombatLoggerPlugin(true);
+		}
 		trackedPartyMembers.put(player.getName(), trackedPartyMember);
 		logQueueManager.queue(String.format("%s\tPOSITION\t(%d, %d, %d)", player.getName(), currentWorldPoint.getX(), currentWorldPoint.getY(), currentWorldPoint.getPlane()));
+	}
+
+	private void logMemberEquipment(Player player)
+	{
+		TrackedPartyMember trackedPartyMember = trackedPartyMembers.get(player.getName());
+
+		if (trackedPartyMember == null || trackedPartyMember.isUsingCombatLoggerPlugin())
+		{
+			return;
+		}
+
+		PlayerComposition composition = player.getPlayerComposition();
+		if (composition != null)
+		{
+			int[] compositionEquipmentIds = composition.getEquipmentIds();
+			List<Integer> currentEquipment = new ArrayList<>();
+			for (int i = 0; i < compositionEquipmentIds.length; i++)
+			{
+				currentEquipment.add(compositionEquipmentIds[i] > PlayerComposition.ITEM_OFFSET ? compositionEquipmentIds[i] - PlayerComposition.ITEM_OFFSET : -1); // Convert to item ID
+			}
+			for (int i = 0; i < 3; i++)
+			{
+				// Add slots we can't see as -2 to indicate unknown
+				currentEquipment.add(-2);
+			}
+			if (compositionEquipmentIds != null)
+			{
+				// Compare with previous equipment
+				if (!Objects.equals(currentEquipment, trackedPartyMember.getPreviousEquipment()))
+				{
+					logQueueManager.queue(String.format("%s\tEQUIPMENT\t%s", player.getName(), currentEquipment));
+					trackedPartyMember.setPreviousEquipment(currentEquipment);
+					trackedPartyMembers.put(player.getName(), trackedPartyMember);
+				}
+			}
+		}
+	}
+
+	private void logMemberOverhead(Player player)
+	{
+		TrackedPartyMember trackedPartyMember = trackedPartyMembers.get(player.getName());
+
+		if (trackedPartyMember == null || trackedPartyMember.isUsingCombatLoggerPlugin())
+		{
+			return;
+		}
+
+		int currentOverheadPrayerId = -1; // -1 represents none
+		if (player.getOverheadIcon() != null)
+		{
+			currentOverheadPrayerId = HEADICON_TO_PRAYER_VARBIT.get(player.getOverheadIcon());
+		}
+		if (currentOverheadPrayerId != trackedPartyMember.getPreviousOverheadPrayerId())
+		{
+			logQueueManager.queue(String.format("%s\tOVERHEAD\t%s", player.getName(), currentOverheadPrayerId));
+			trackedPartyMember.setPreviousOverheadPrayerId(currentOverheadPrayerId);
+			trackedPartyMembers.put(player.getName(), trackedPartyMember);
+		}
 	}
 
 	private void logPosition(NPC npc)
@@ -667,6 +732,7 @@ public class CombatLoggerPlugin extends Plugin
 			return;
 		}
 
+		markMemberHasPlugin(event.getMemberId());
 		PartyMember eventMember = party.getMemberById(event.getMemberId());
 
 		logQueueManager.queue(String.format("%s\tEQUIPMENT\t%s", eventMember.getDisplayName(), event.getItemIds()));
@@ -682,9 +748,10 @@ public class CombatLoggerPlugin extends Plugin
 			return;
 		}
 
+		markMemberHasPlugin(event.getMemberId());
 		PartyMember eventMember = party.getMemberById(event.getMemberId());
 
-		logQueueManager.queue(String.format("%s\tPRAYERS\t%s", eventMember.getDisplayName(), event.getItemIds()));
+		logQueueManager.queue(String.format("%s\tPRAYERS\t%s", eventMember.getDisplayName(), event.getPrayerIds()));
 	}
 
 	@Subscribe
@@ -697,6 +764,7 @@ public class CombatLoggerPlugin extends Plugin
 			return;
 		}
 
+		markMemberHasPlugin(event.getMemberId());
 		PartyMember eventMember = party.getMemberById(event.getMemberId());
 
 		logQueueManager.queue(String.format("%s\tBASE_STATS\t%s", eventMember.getDisplayName(), event.getStats()));
@@ -712,10 +780,26 @@ public class CombatLoggerPlugin extends Plugin
 			return;
 		}
 
+		markMemberHasPlugin(event.getMemberId());
 		PartyMember eventMember = party.getMemberById(event.getMemberId());
 
 		logQueueManager.queue(String.format("%s\tBOOSTED_STATS\t%s", eventMember.getDisplayName(), event.getStats()));
 	}
+
+	private void markMemberHasPlugin(long memberId)
+	{
+		PartyMember eventMember = party.getMemberById(memberId);
+		if (eventMember == null)
+		{
+			return;
+		}
+
+		TrackedPartyMember trackedMember = trackedPartyMembers.getOrDefault(eventMember.getDisplayName(), new TrackedPartyMember());
+		trackedMember.setUsingCombatLoggerPlugin(true);
+		// I guess if they turn the plugin off without leaving and rejoining the party we just won't have logs for them anymore
+		trackedPartyMembers.put(eventMember.getDisplayName(), trackedMember);
+	}
+
 
 	@Subscribe
 	public void onHitsplatApplied(HitsplatApplied hitsplatApplied)
