@@ -6,6 +6,7 @@ import com.combatlogger.messages.DamageMessage;
 import com.combatlogger.messages.EquipmentMessage;
 import com.combatlogger.messages.PrayerMessage;
 import com.combatlogger.model.Fight;
+import com.combatlogger.model.TrackedGraphicObject;
 import com.combatlogger.model.TrackedNpc;
 import com.combatlogger.model.TrackedPartyMember;
 import com.combatlogger.model.logs.*;
@@ -16,6 +17,7 @@ import com.combatlogger.util.BoundedQueue;
 import com.combatlogger.util.CombatStats;
 import com.google.inject.Provides;
 import lombok.Getter;
+import net.runelite.api.Deque;
 import net.runelite.api.Menu;
 import net.runelite.api.Point;
 import net.runelite.api.*;
@@ -55,6 +57,9 @@ import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static com.combatlogger.util.GameObjectIdsToTrack.GAME_OBJECT_IDS_TO_TRACK;
+import static com.combatlogger.util.GraphicsObjectIdsToTrack.GRAPHICS_OBJECT_IDS_TO_TRACK;
+import static com.combatlogger.util.GroundObjectIdsToTrack.GROUND_OBJECT_IDS_TO_TRACK;
 import static com.combatlogger.util.HitSplatUtil.getHitsplatName;
 import static com.combatlogger.util.NpcIdsToTrack.NPC_IDS_TO_TRACK;
 import static com.combatlogger.util.OverheadToPrayer.HEADICON_TO_PRAYER_VARBIT;
@@ -105,6 +110,7 @@ public class CombatLoggerPlugin extends Plugin
 
 	private Map<String, TrackedPartyMember> trackedPartyMembers = new HashMap<>();
 	private Map<String, TrackedNpc> trackedNpcs = new HashMap<>();
+	private Map<String, TrackedGraphicObject> trackedGraphicObjects = new HashMap<>();
 	private List<Integer> previousBaseStats;
 	private boolean baseStatChangeLogScheduled;
 	private List<Integer> previousBoostedStats;
@@ -207,6 +213,7 @@ public class CombatLoggerPlugin extends Plugin
 		playerAnimationChanges.clear();
 		trackedPartyMembers.clear();
 		trackedNpcs.clear();
+		trackedGraphicObjects.clear();
 		regionId = -1;
 		wsClient.unregisterMessage(DamageMessage.class);
 		wsClient.unregisterMessage(BaseCombatStatsMessage.class);
@@ -353,6 +360,8 @@ public class CombatLoggerPlugin extends Plugin
 		npcs.forEach(npc -> {
 			this.logPosition(npc);
 		});
+
+		checkGraphicsObjectDespawns();
 	}
 
 	private void logPrayers(boolean forceLogging)
@@ -492,6 +501,139 @@ public class CombatLoggerPlugin extends Plugin
 		trackedNpc.setWorldPoint(currentWorldPoint);
 		trackedNpcs.put(npc.getId() + "-" + npc.getIndex(), trackedNpc);
 		logQueueManager.queue(String.format("%d-%d\tPOSITION\t(%d, %d, %d)", npc.getId(), npc.getIndex(), currentWorldPoint.getX(), currentWorldPoint.getY(), currentWorldPoint.getPlane()));
+	}
+
+	@Subscribe
+	protected void onGraphicsObjectCreated(GraphicsObjectCreated event)
+	{
+		GraphicsObject graphicsObject = event.getGraphicsObject();
+		if (!GRAPHICS_OBJECT_IDS_TO_TRACK.contains(graphicsObject.getId()))
+		{
+			return;
+		}
+
+		WorldPoint currentWorldPoint = WorldPoint.fromLocalInstance(client, graphicsObject.getLocation());
+
+		String key = graphicsObject.getId() + "-" + currentWorldPoint.getX() + "-" + currentWorldPoint.getY() + "-" + currentWorldPoint.getPlane();
+
+		if (trackedGraphicObjects.get(key) != null)
+		{
+			// Sometimes the same graphics object is recreated before it's gone (I think to loop the animation?)
+			// We don't need to log it again
+			return;
+		}
+
+		TrackedGraphicObject trackedGraphicObject = new TrackedGraphicObject();
+		trackedGraphicObject.setId(graphicsObject.getId());
+		trackedGraphicObject.setWorldPoint(currentWorldPoint);
+		trackedGraphicObjects.put(key, trackedGraphicObject);
+		logQueueManager.queue(String.format("%d\tGRAPHICS_OBJECT_SPAWNED\t(%d, %d, %d)", graphicsObject.getId(), currentWorldPoint.getX(), currentWorldPoint.getY(), currentWorldPoint.getPlane()));
+	}
+
+	private void checkGraphicsObjectDespawns()
+	{
+		Deque<GraphicsObject> graphicsObjects = client.getGraphicsObjects();
+		Set<String> activeKeys = new HashSet<>();
+		for (GraphicsObject graphicsObject : graphicsObjects)
+		{
+			if (GRAPHICS_OBJECT_IDS_TO_TRACK.contains(graphicsObject.getId()))
+			{
+				WorldPoint currentWorldPoint = WorldPoint.fromLocalInstance(client, graphicsObject.getLocation());
+				activeKeys.add(graphicsObject.getId() + "-" + currentWorldPoint.getX() + "-" + currentWorldPoint.getY() + "-" + currentWorldPoint.getPlane());
+			}
+		}
+
+		trackedGraphicObjects.entrySet().removeIf(trackedGraphicObjectEntry -> {
+					if (!activeKeys.contains(trackedGraphicObjectEntry.getKey()))
+					{
+						logQueueManager.queue(String.format(
+								"%d\tGRAPHICS_OBJECT_DESPAWNED\t(%d, %d, %d)",
+								trackedGraphicObjectEntry.getValue().getId(),
+								trackedGraphicObjectEntry.getValue().getWorldPoint().getX(),
+								trackedGraphicObjectEntry.getValue().getWorldPoint().getY(),
+								trackedGraphicObjectEntry.getValue().getWorldPoint().getPlane()
+						));
+						return true;
+					}
+					return false;
+				}
+		);
+	}
+
+	@Subscribe
+	protected void onGameObjectSpawned(GameObjectSpawned event)
+	{
+		GameObject gameObject = event.getGameObject();
+		if (!GAME_OBJECT_IDS_TO_TRACK.contains(gameObject.getId()))
+		{
+			return;
+		}
+		LocalPoint localPoint = LocalPoint.fromWorld(client, gameObject.getWorldLocation());
+		if (localPoint == null)
+		{
+			return;
+		}
+
+		WorldPoint currentWorldPoint = WorldPoint.fromLocalInstance(client, localPoint);
+
+		logQueueManager.queue(String.format("%d\tGAME_OBJECT_SPAWNED\t(%d, %d, %d)", gameObject.getId(), currentWorldPoint.getX(), currentWorldPoint.getY(), currentWorldPoint.getPlane()));
+	}
+
+	@Subscribe
+	protected void onGameObjectDespawned(GameObjectDespawned event)
+	{
+		GameObject gameObject = event.getGameObject();
+		if (!GAME_OBJECT_IDS_TO_TRACK.contains(gameObject.getId()))
+		{
+			return;
+		}
+
+		LocalPoint localPoint = LocalPoint.fromWorld(client, gameObject.getWorldLocation());
+		if (localPoint == null)
+		{
+			return;
+		}
+
+		WorldPoint currentWorldPoint = WorldPoint.fromLocalInstance(client, localPoint);
+		logQueueManager.queue(String.format("%d\tGAME_OBJECT_DESPAWNED\t(%d, %d, %d)", gameObject.getId(), currentWorldPoint.getX(), currentWorldPoint.getY(), currentWorldPoint.getPlane()));
+	}
+
+	@Subscribe
+	protected void onGroundObjectSpawned(GroundObjectSpawned event)
+	{
+		GroundObject groundObject = event.getGroundObject();
+
+		if (!GROUND_OBJECT_IDS_TO_TRACK.contains(groundObject.getId()))
+		{
+			return;
+		}
+
+		LocalPoint localPoint = LocalPoint.fromWorld(client, groundObject.getWorldLocation());
+		if (localPoint == null)
+		{
+			return;
+		}
+		WorldPoint currentWorldPoint = WorldPoint.fromLocalInstance(client, localPoint);
+
+		logQueueManager.queue(String.format("%d\tGROUND_OBJECT_SPAWNED\t(%d, %d, %d)", groundObject.getId(), currentWorldPoint.getX(), currentWorldPoint.getY(), currentWorldPoint.getPlane()));
+	}
+
+	@Subscribe
+	protected void onGroundObjectDespawned(GroundObjectDespawned event)
+	{
+		GroundObject groundObject = event.getGroundObject();
+		if (!GROUND_OBJECT_IDS_TO_TRACK.contains(groundObject.getId()))
+		{
+			return;
+		}
+		LocalPoint localPoint = LocalPoint.fromWorld(client, groundObject.getWorldLocation());
+		if (localPoint == null)
+		{
+			return;
+		}
+
+		WorldPoint currentWorldPoint = WorldPoint.fromLocalInstance(client, localPoint);
+		logQueueManager.queue(String.format("%d\tGROUND_OBJECT_DESPAWNED\t(%d, %d, %d)", groundObject.getId(), currentWorldPoint.getX(), currentWorldPoint.getY(), currentWorldPoint.getPlane()));
 	}
 
 	/**
@@ -1139,7 +1281,7 @@ public class CombatLoggerPlugin extends Plugin
 		{
 			LOG_FILE = new File(DIRECTORY, LOG_FILE_NAME + "-" + System.currentTimeMillis() + ".txt");
 			LOG_FILE.createNewFile();
-			logQueueManager.queue("Log Version 1.3.0");
+			logQueueManager.queue("Log Version 1.3.1");
 			if (client.getLocalPlayer() != null && client.getLocalPlayer().getName() != null)
 			{
 				logPlayerName();
