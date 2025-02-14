@@ -328,6 +328,11 @@ public class AnimationIds
 					ticks = 4;
 					break;
 				}
+				if (weaponId == TWINFLAME_STAFF)
+				{
+					ticks = 6;
+					break;
+				}
 			case 811: // Flames of Zamorak, Saradomin Strike, Claws of Guthix
 			case 708: // Iban blast
 			case 8532: // Eldritch/Volatile nightmare staff spec
