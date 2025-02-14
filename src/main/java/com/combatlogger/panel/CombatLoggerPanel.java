@@ -35,12 +35,16 @@ public class CombatLoggerPanel extends PluginPanel
 	@Getter
 	private Fight selectedFight = null;
 
+	private static final ImageIcon DISCORD_ICON;
+	private static final ImageIcon RUNELOGS_ICON;
 	private static final ImageIcon FOLDER_ICON;
 	private static final ImageIcon STOP_ICON;
 	private static final ImageIcon CLOSE_ICON;
 
 	static
 	{
+		DISCORD_ICON = new ImageIcon(ImageUtil.loadImageResource(CombatLoggerPlugin.class, "/discord.png"));
+		RUNELOGS_ICON = new ImageIcon(ImageUtil.loadImageResource(CombatLoggerPlugin.class, "/runelogs.png"));
 		FOLDER_ICON = new ImageIcon(ImageUtil.loadImageResource(CombatLoggerPlugin.class, "/folder.png"));
 		STOP_ICON = new ImageIcon(ImageUtil.loadImageResource(CombatLoggerPlugin.class, "/stop.png"));
 		CLOSE_ICON = new ImageIcon(ImageUtil.loadImageResource(CombatLoggerPlugin.class, "/close.png"));
@@ -55,7 +59,28 @@ public class CombatLoggerPanel extends PluginPanel
 		topPanel.setLayout(new BorderLayout());
 		topPanel.setBorder(new EmptyBorder(0, 0, 20, 0));
 		topPanel.add(new JLabel("Combat Logger"), BorderLayout.WEST);
-		topPanel.add(createButton(FOLDER_ICON, "Open combat log folder", () -> LinkBrowser.open(DIRECTORY.toString())), BorderLayout.EAST);
+
+		final JPanel iconPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+
+		iconPanel.add(createButton(
+				RUNELOGS_ICON,
+				"Open Runelogs - upload and analyze your combat logs",
+				() -> LinkBrowser.browse("https://runelogs.com")
+		));
+		iconPanel.add(Box.createHorizontalStrut(10));
+		iconPanel.add(createButton(
+				DISCORD_ICON,
+				"Get Combat Logger / Runelogs help or make suggestions on Discord",
+				() -> LinkBrowser.browse("https://discord.gg/ZydwX7AJEd")
+		));
+		iconPanel.add(Box.createHorizontalStrut(10));
+		iconPanel.add(createButton(
+				FOLDER_ICON,
+				"Open combat log folder",
+				() -> LinkBrowser.open(DIRECTORY.toString())
+		));
+
+		topPanel.add(iconPanel, BorderLayout.EAST);
 		add(topPanel, BorderLayout.NORTH);
 
 		final JPanel damageMeterTextPanel = new JPanel(new BorderLayout());
