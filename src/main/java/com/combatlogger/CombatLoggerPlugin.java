@@ -1262,16 +1262,7 @@ public class CombatLoggerPlugin extends Plugin
 	{
 		if (actor instanceof NPC)
 		{
-			NPC npc = (NPC) actor;
-			int id = npc.getId();
-
-			// Treat these as the same so that the fight will end if the NPC is killed
-			if (id == 8611) // Wyrm attacking
-			{
-				id = 8610; // Wyrm idle
-			}
-
-			return id + "-" + npc.getIndex();
+			return ((NPC) actor).getId() + "-" + ((NPC) actor).getIndex();
 		}
 		else
 		{
