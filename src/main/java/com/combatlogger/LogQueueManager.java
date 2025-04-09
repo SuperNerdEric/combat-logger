@@ -90,6 +90,10 @@ public class LogQueueManager
 			{
 				fightManager.addTicks((AttackAnimationLog) log);
 			}
+			else if (log instanceof NpcChangedLog)
+			{
+				fightManager.handleNpcChanged((NpcChangedLog) log);
+			}
 		}
 
 		// No need to call panel.onGameTick(event); as FightManager handles game ticks.

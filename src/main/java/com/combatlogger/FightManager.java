@@ -392,6 +392,20 @@ public class FightManager
 		}
 	}
 
+	public void handleNpcChanged(NpcChangedLog npcChangedLog)
+	{
+		if (fights.isEmpty() || fights.peekLast().isOver())
+		{
+			return;
+		}
+
+		Fight currentFight = fights.peekLast();
+		if (currentFight.getMainTarget().equals(npcChangedLog.getOldNpc()))
+		{
+			currentFight.setMainTarget(npcChangedLog.getNewNpc());
+		}
+	}
+
 	@Subscribe
 	public void onChatMessage(ChatMessage event)
 	{

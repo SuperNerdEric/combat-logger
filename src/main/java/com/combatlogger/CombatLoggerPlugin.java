@@ -271,14 +271,19 @@ public class CombatLoggerPlugin extends Plugin
 	@Subscribe
 	public void onNpcChanged(NpcChanged event)
 	{
-		int oldNpcId = event.getOld().getId();
-		if (!NPC_IDS_TO_TRACK.contains(oldNpcId))
-		{
-			return;
-		}
-		String key = oldNpcId + "-" + event.getNpc().getIndex();
-		trackedNpcs.remove(key);
-		logQueueManager.queue(String.format("%s\tDESPAWNED", key));
+		String oldNpc = event.getOld().getId() + "-" + event.getNpc().getIndex();
+		String newNpc = event.getNpc().getId() + "-" + event.getNpc().getIndex();
+
+		trackedNpcs.remove(oldNpc);
+		logQueueManager.queue(
+				new NpcChangedLog(
+						client.getTickCount(),
+						getCurrentTimestamp(),
+						String.format("%s\tNPC_CHANGED\t%s", oldNpc, newNpc),
+						oldNpc,
+						newNpc
+				)
+		);
 	}
 
 	@Subscribe
