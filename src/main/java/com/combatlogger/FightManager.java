@@ -33,8 +33,9 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.combatlogger.CombatLoggerPlugin.getCurrentTimestamp;
-import static com.combatlogger.util.BossNames.*;
+import static com.combatlogger.util.BossIds.*;
 import static com.combatlogger.util.HitSplatUtil.NON_DAMAGE_HITSPLATS;
+import static com.combatlogger.util.IdParser.parseId;
 
 @Singleton
 public class FightManager
@@ -263,10 +264,10 @@ public class FightManager
 		if (fights.isEmpty() || fights.peekLast().isOver())
 		{
 			if (damageLog.getSource().equals("Unknown")
-					&& !BOSS_NAMES.contains(damageLog.getTargetName())
+					&& !BOSS_IDS.contains(parseId(damageLog.getTarget()))
 					&& !MINION_TO_BOSS.containsKey(damageLog.getTargetName()))
 			{
-				// Don't start a fight if the source is Unknown unless it's a boss or minion
+				// Don't start a fight if the source is Unknown unless the target is a boss or minion
 				return;
 			}
 			currentFight = new Fight();
@@ -280,7 +281,13 @@ public class FightManager
 		{
 			currentFight = fights.peekLast();
 
-			if (!currentFight.getMainTarget().equals(damageLog.getTarget()) && BOSS_NAMES.contains(damageLog.getTargetName()))
+			if (
+					BOSS_IDS.contains(parseId(damageLog.getTarget()))
+							&& (
+							!currentFight.getMainTarget().equals(damageLog.getTarget())
+									|| !currentFight.getFightName().equals(damageLog.getTargetName())
+					)
+			)
 			{
 				// If we are in the middle of a fight and encounter a boss, change the fight name and main target
 				currentFight.setFightName(damageLog.getTargetName());
@@ -314,7 +321,7 @@ public class FightManager
 		if (fights.isEmpty() || fights.peekLast().isOver())
 		{
 			if (!attackAnimationLog.getSource().equals(client.getLocalPlayer().getName())
-					&& !BOSS_NAMES.contains(attackAnimationLog.getTargetName())
+					&& !BOSS_IDS.contains(parseId(attackAnimationLog.getTarget()))
 					&& !MINION_TO_BOSS.containsKey(attackAnimationLog.getTargetName()))
 			{
 				// Don't start a fight if the source is not us unless it's a boss or minion
@@ -379,7 +386,7 @@ public class FightManager
 	public void recordNPCTargetingPlayer(TargetChangeLog targetChangeLog)
 	{
 		if ((fights.isEmpty() || fights.peekLast().isOver())
-				&& BOSS_NAMES.contains(targetChangeLog.getSourceName()))
+				&& BOSS_IDS.contains(parseId(targetChangeLog.getSource())))
 		{
 			// A boss has targeted a player; start a new fight
 			Fight newFight = new Fight();
