@@ -24,6 +24,10 @@ import net.runelite.api.*;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.*;
+import net.runelite.api.gameval.InventoryID;
+import net.runelite.api.gameval.SpotanimID;
+import net.runelite.api.gameval.VarPlayerID;
+import net.runelite.api.gameval.VarbitID;
 import net.runelite.api.kit.KitType;
 import net.runelite.client.RuneLite;
 import net.runelite.client.callback.ClientThread;
@@ -83,22 +87,22 @@ public class CombatLoggerPlugin extends Plugin
 	private static final Pattern ENCOUNTER_PATTERN = Pattern.compile("(Wave|Duration|Challenge)", Pattern.CASE_INSENSITIVE);
 
 	private static final List<Integer> TOB_ORBS_VARBITS = Arrays.asList(
-			Varbits.THEATRE_OF_BLOOD_ORB1,
-			Varbits.THEATRE_OF_BLOOD_ORB2,
-			Varbits.THEATRE_OF_BLOOD_ORB3,
-			Varbits.THEATRE_OF_BLOOD_ORB4,
-			Varbits.THEATRE_OF_BLOOD_ORB5
+			VarbitID.TOB_CLIENT_P0,
+			VarbitID.TOB_CLIENT_P1,
+			VarbitID.TOB_CLIENT_P2,
+			VarbitID.TOB_CLIENT_P3,
+			VarbitID.TOB_CLIENT_P4
 	);
 
 	private static final List<Integer> TOA_ORBS_VARBITS = Arrays.asList(
-			Varbits.TOA_MEMBER_0_HEALTH,
-			Varbits.TOA_MEMBER_1_HEALTH,
-			Varbits.TOA_MEMBER_2_HEALTH,
-			Varbits.TOA_MEMBER_3_HEALTH,
-			Varbits.TOA_MEMBER_4_HEALTH,
-			Varbits.TOA_MEMBER_5_HEALTH,
-			Varbits.TOA_MEMBER_6_HEALTH,
-			Varbits.TOA_MEMBER_7_HEALTH
+			VarbitID.TOA_CLIENT_P0,
+			VarbitID.TOA_CLIENT_P1,
+			VarbitID.TOA_CLIENT_P2,
+			VarbitID.TOA_CLIENT_P3,
+			VarbitID.TOA_CLIENT_P4,
+			VarbitID.TOA_CLIENT_P5,
+			VarbitID.TOA_CLIENT_P6,
+			VarbitID.TOA_CLIENT_P7
 	);
 
 	static
@@ -804,7 +808,7 @@ public class CombatLoggerPlugin extends Plugin
 			return;
 		}
 
-		if (local.hasSpotAnim(GraphicID.SPLASH))
+		if (local.hasSpotAnim(SpotanimID.FAILEDSPELL_IMPACT))
 		{
 			logQueueManager.queue(String.format("%s\t%s\t%s\t%d", "Unknown", "SPLASH_ME", local.getName(), 0));
 		}
@@ -813,7 +817,7 @@ public class CombatLoggerPlugin extends Plugin
 	@Subscribe
 	public void onItemContainerChanged(ItemContainerChanged itemContainerChanged)
 	{
-		if (itemContainerChanged.getContainerId() == InventoryID.EQUIPMENT.getId())
+		if (itemContainerChanged.getContainerId() == InventoryID.WORN)
 		{
 			logEquipment(false);
 		}
@@ -821,7 +825,7 @@ public class CombatLoggerPlugin extends Plugin
 
 	private void logEquipment(boolean forceLogging)
 	{
-		ItemContainer equipContainer = client.getItemContainer(InventoryID.EQUIPMENT);
+		ItemContainer equipContainer = client.getItemContainer(InventoryID.WORN);
 		if (equipContainer == null)
 		{
 			return;
@@ -830,7 +834,7 @@ public class CombatLoggerPlugin extends Plugin
 				.map(Item::getId)
 				.collect(Collectors.toList());
 
-		final int quiverAmmoId = client.getVarpValue(VarPlayer.DIZANAS_QUIVER_ITEM_ID);
+		final int quiverAmmoId = client.getVarpValue(VarPlayerID.DIZANAS_QUIVER_TEMP_AMMO);
 		currentItemIds.add(quiverAmmoId);
 
 		if (forceLogging || !Objects.equals(currentItemIds, previousItemIds))
@@ -1018,7 +1022,7 @@ public class CombatLoggerPlugin extends Plugin
 	@Subscribe
 	public void onVarbitChanged(VarbitChanged varbitChanged)
 	{
-		if (varbitChanged.getVarpId() == VarPlayer.DIZANAS_QUIVER_ITEM_ID)
+		if (varbitChanged.getVarpId() == VarPlayerID.DIZANAS_QUIVER_TEMP_AMMO)
 		{
 			logEquipment(false);
 		}

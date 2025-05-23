@@ -1,9 +1,9 @@
 package com.combatlogger.util;
 
+import net.runelite.api.gameval.ItemID;
+
 import java.util.Arrays;
 import java.util.List;
-
-import static net.runelite.api.ItemID.*;
 
 public class AnimationIds
 {
@@ -159,8 +159,8 @@ public class AnimationIds
 		{
 			// 2 Tick Animations (and alternatives)
 			case 7617: // Rune knife
-				if (weaponId == BRONZE_THROWNAXE || weaponId == IRON_THROWNAXE || weaponId == STEEL_THROWNAXE || weaponId == MITHRIL_THROWNAXE
-						|| weaponId == ADAMANT_THROWNAXE || weaponId == RUNE_THROWNAXE || weaponId == DRAGON_THROWNAXE)
+				if (weaponId == ItemID.BRONZE_THROWNAXE || weaponId == ItemID.IRON_THROWNAXE || weaponId == ItemID.STEEL_THROWNAXE || weaponId == ItemID.MITHRIL_THROWNAXE
+						|| weaponId == ItemID.ADAMNT_THROWNAXE || weaponId == ItemID.RUNE_THROWNAXE || weaponId == ItemID.DRAGON_THROWNAXE)
 				{
 					ticks = 4;
 					break;
@@ -176,14 +176,14 @@ public class AnimationIds
 
 			// 3 Tick Animations (and alternatives)
 			case 426: // Bow
-				if (weaponId == TWISTED_BOW)
+				if (weaponId == ItemID.TWISTED_BOW)
 				{
 					ticks = 5;
 					break;
 				}
-				else if (weaponId == BOW_OF_FAERDHINEN || weaponId == BOW_OF_FAERDHINEN_C || weaponId == BOW_OF_FAERDHINEN_C_25869 || weaponId == BOW_OF_FAERDHINEN_C_25884
-						|| weaponId == BOW_OF_FAERDHINEN_C_25886 || weaponId == BOW_OF_FAERDHINEN_C_25888 || weaponId == BOW_OF_FAERDHINEN_C_25890
-						|| weaponId == BOW_OF_FAERDHINEN_C_25892 || weaponId == BOW_OF_FAERDHINEN_C_25894 || weaponId == BOW_OF_FAERDHINEN_C_25896)
+				else if (weaponId == ItemID.BOW_OF_FAERDHINEN || weaponId == ItemID.BOW_OF_FAERDHINEN_INFINITE || weaponId == ItemID.BOW_OF_FAERDHINEN_INFINITE_DUMMY || weaponId == ItemID.BOW_OF_FAERDHINEN_INFINITE_ITHELL
+						|| weaponId == ItemID.BOW_OF_FAERDHINEN_INFINITE_IORWERTH || weaponId == ItemID.BOW_OF_FAERDHINEN_INFINITE_TRAHAEARN || weaponId == ItemID.BOW_OF_FAERDHINEN_INFINITE_CADARN
+						|| weaponId == ItemID.BOW_OF_FAERDHINEN_INFINITE_CRWYS || weaponId == ItemID.BOW_OF_FAERDHINEN_INFINITE_MEILYR || weaponId == ItemID.BOW_OF_FAERDHINEN_INFINITE_AMLODD)
 				{
 					ticks = 4;
 					break;
@@ -200,12 +200,12 @@ public class AnimationIds
 			// 4 Tick Animations (and alternatives)
 			case 428: // Spear stab, Chally,  Zamorakian Hasta
 			case 440: // Spear slash, Chally
-				if (weaponId == CRYSTAL_HALBERD || weaponId == CRYSTAL_HALBERD_24125)
+				if (weaponId == ItemID.CRYSTAL_HALBERD || weaponId == ItemID.CRYSTAL_HALBERD_2500)
 				{
 					ticks = 7;
 					break;
 				}
-				else if (weaponId == LEAFBLADED_SPEAR || weaponId == NOXIOUS_HALBERD)
+				else if (weaponId == ItemID.SLAYER_LEAFBLADED_SPEAR || weaponId == ItemID.NOXIOUS_HALBERD)
 				{
 					ticks = 5;
 					break;
@@ -222,12 +222,12 @@ public class AnimationIds
 			case 386: // Stab
 			case 419: // Keris partisan crush, Zamorakian hasta crush
 			case 390: // Slash, Swift blade, Osmumten's fang
-				if (weaponId == SWIFT_BLADE)
+				if (weaponId == ItemID.SWIFT_BLADE)
 				{
 					ticks = 3;
 					break;
 				}
-				if (weaponId == OSMUMTENS_FANG || weaponId == OSMUMTENS_FANG_OR)
+				if (weaponId == ItemID.OSMUMTENS_FANG || weaponId == ItemID.OSMUMTENS_FANG_ORNAMENT)
 				{
 					ticks = 5;
 					break;
@@ -245,13 +245,13 @@ public class AnimationIds
 			case 7515: // Dragon sword spec
 			case 8145: // Rapier
 			case 2062: // Verac's flail, Bone mace
-				if (weaponId == VERACS_FLAIL || weaponId == VERACS_FLAIL_100 || weaponId == VERACS_FLAIL_75 || weaponId == VERACS_FLAIL_50 || weaponId == VERACS_FLAIL_25)
+				if (weaponId == ItemID.BARROWS_VERAC_WEAPON || weaponId == ItemID.BARROWS_VERAC_WEAPON_100 || weaponId == ItemID.BARROWS_VERAC_WEAPON_75 || weaponId == ItemID.BARROWS_VERAC_WEAPON_50 || weaponId == ItemID.BARROWS_VERAC_WEAPON_25)
 				{
 					ticks = 5;
 					break;
 				}
 			case 8288: // Dragon hunter lance stab, Swift blade
-				if (weaponId == SWIFT_BLADE)
+				if (weaponId == ItemID.SWIFT_BLADE)
 				{
 					ticks = 3;
 					break;
@@ -277,14 +277,14 @@ public class AnimationIds
 
 			// 5 Tick Animations (and alternatives)
 			case 393: // Staff bash
-				if (weaponId == DRAGON_CLAWS || weaponId == DRAGON_CLAWS_CR || weaponId == BURNING_CLAWS || weaponId == BONE_STAFF)
+				if (weaponId == ItemID.DRAGON_CLAWS || weaponId == ItemID.BH_DRAGON_CLAWS_CORRUPTED || weaponId == ItemID.BONE_CLAWS || weaponId == ItemID.RAT_BONE_STAFF)
 				{
 					ticks = 4;
 					break;
 				}
 			case 395: // Axe
 			case 400: // Pickaxe smash, Inquisitor's mace stab
-				if (weaponId == INQUISITORS_MACE)
+				if (weaponId == ItemID.INQUISITORS_MACE)
 				{
 					ticks = 4;
 					break;
@@ -305,7 +305,7 @@ public class AnimationIds
 			case 9471: // Osmumten's Fang Stab
 			case 11222: // Osmumten's fang spec
 			case 1665: // Gadderhammer, Granite maul
-				if (weaponId == GRANITE_MAUL || weaponId == GRANITE_MAUL_24225 || weaponId == GRANITE_MAUL_12848 || weaponId == GRANITE_MAUL_24227)
+				if (weaponId == ItemID.GRANITE_MAUL || weaponId == ItemID.GRANITE_MAUL_PLUS || weaponId == ItemID.GRANITE_MAUL_PRETTY || weaponId == ItemID.GRANITE_MAUL_PRETTY_PLUS)
 				{
 					ticks = 7;
 					break;
@@ -323,12 +323,12 @@ public class AnimationIds
 			case 1166: // Crumble undead with staff
 			case 1576: // Magic dart
 			case 7855: // Surge, Harmonised nightmare staff
-				if (weaponId == HARMONISED_NIGHTMARE_STAFF)
+				if (weaponId == ItemID.NIGHTMARE_STAFF_HARMONISED)
 				{
 					ticks = 4;
 					break;
 				}
-				if (weaponId == TWINFLAME_STAFF)
+				if (weaponId == ItemID.TWINFLAME_STAFF)
 				{
 					ticks = 6;
 					break;
@@ -346,11 +346,11 @@ public class AnimationIds
 
 			// 6 Tick Animations (and alternatives)
 			case 401:
-				if (weaponId == DRAGON_WARHAMMER || weaponId == DRAGON_WARHAMMER_CR)
+				if (weaponId == ItemID.DRAGON_WARHAMMER || weaponId == ItemID.BH_DRAGON_WARHAMMER_CORRUPTED)
 				{
 					ticks = 6;
 				}
-				else if (weaponId == HAM_JOINT)
+				else if (weaponId == ItemID.JOINT_OF_HAM)
 				{
 					ticks = 3;
 				}
@@ -364,7 +364,7 @@ public class AnimationIds
 			case 7045: // Saradomin sword, Godswords
 			case 7054: // Saradomin sword, Godswords
 			case 7055: // Saradomin sword, Godswords
-				if (weaponId == SARADOMIN_SWORD || weaponId == SARAS_BLESSED_SWORD_FULL || weaponId == SARADOMINS_BLESSED_SWORD)
+				if (weaponId == ItemID.SARADOMIN_SWORD || weaponId == ItemID.BLESSED_SARADOMIN_SWORD || weaponId == ItemID.BLESSED_SARADOMIN_SWORD_DEGRADED)
 				{
 					ticks = 4;
 					break;
@@ -396,7 +396,7 @@ public class AnimationIds
 			case 406: // 2h crush
 			case 407: // 2h slash
 			case 1203: // Chally spec
-				if (weaponId == NOXIOUS_HALBERD)
+				if (weaponId == ItemID.NOXIOUS_HALBERD)
 				{
 					ticks = 5;
 					break;
