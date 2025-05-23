@@ -49,6 +49,7 @@ import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.util.ImageUtil;
+import net.runelite.client.util.Text;
 import org.apache.commons.lang3.ArrayUtils;
 
 import javax.inject.Inject;
@@ -669,7 +670,7 @@ public class CombatLoggerPlugin extends Plugin
 						String.format("%s attack animation %d\t%s", player.getName(), animationId, getIdOrName(player.getInteracting())),
 						player.getName(),
 						getIdOrName(player.getInteracting()),
-						player.getInteracting().getName(),
+						Text.removeTags(player.getInteracting().getName()),
 						animationId,
 						weaponId
 				)
@@ -971,7 +972,7 @@ public class CombatLoggerPlugin extends Plugin
 						(String.format("%s\t%s\t%s\t%d", source, hitsplatName, target, damageAmount)),
 						source,
 						getIdOrName(actor),
-						actor.getName(),
+						Text.removeTags(actor.getName()),
 						damageAmount,
 						hitsplatName
 				)
@@ -979,7 +980,7 @@ public class CombatLoggerPlugin extends Plugin
 
 		if (party.isInParty() && hitsplat.isMine() && !target.equals(myName))
 		{
-			DamageMessage damageMessage = new DamageMessage(target, actor.getName(), hitsplatName, damageAmount);
+			DamageMessage damageMessage = new DamageMessage(target, Text.removeTags(actor.getName()), hitsplatName, damageAmount);
 			clientThread.invokeLater(() -> party.send(damageMessage));
 		}
 	}
@@ -999,7 +1000,7 @@ public class CombatLoggerPlugin extends Plugin
 							getCurrentTimestamp(),
 							String.format("%s changes target to %s", getIdOrName(source), getIdOrName(target)),
 							getIdOrName(source),
-							source.getName(),
+							Text.removeTags(source.getName()),
 							getIdOrName(target)
 					)
 			);
