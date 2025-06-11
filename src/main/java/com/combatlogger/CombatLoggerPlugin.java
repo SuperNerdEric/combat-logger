@@ -1286,7 +1286,7 @@ public class CombatLoggerPlugin extends Plugin
 		{
 			LOG_FILE = new File(DIRECTORY, LOG_FILE_NAME + "-" + System.currentTimeMillis() + ".txt");
 			LOG_FILE.createNewFile();
-			logQueueManager.queue("Log Version 1.3.6");
+			logQueueManager.queue("Log Version 1.3.7");
 			if (client.getLocalPlayer() != null && client.getLocalPlayer().getName() != null)
 			{
 				logPlayerName();
