@@ -103,6 +103,7 @@ public interface CombatLoggerConfig extends Config
 	}
 
 	@Range(max = 100)
+	@Units(Units.PERCENT)
 	@ConfigItem(
 			keyName = "overlayOpacity",
 			name = "Overlay Opacity",
@@ -114,6 +115,18 @@ public interface CombatLoggerConfig extends Config
 	{
 		return 100;
 	}
+
+	@Range(max = 100)
+	@Units(Units.PERCENT)
+	@ConfigItem(
+			keyName = "backgroundOpacity",
+			name = "Background Opacity",
+			description = "Transparency of the overlay's grey box",
+			section = overlaySection,
+			position = 31
+	)
+	default int backgroundOpacity() { return 60; }
+
 
 	/* Debug Settings
 	 * POSITIONS: 51-74

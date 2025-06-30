@@ -10,7 +10,7 @@ import com.combatlogger.model.TrackedGraphicObject;
 import com.combatlogger.model.TrackedNpc;
 import com.combatlogger.model.TrackedPartyMember;
 import com.combatlogger.model.logs.*;
-import com.combatlogger.overlay.DamageOverlay;
+import com.combatlogger.overlay.CombatLoggerOverlay;
 import com.combatlogger.panel.CombatLoggerPanel;
 import com.combatlogger.util.AnimationIds;
 import com.combatlogger.util.BoundedQueue;
@@ -37,10 +37,13 @@ import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.EventBus;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
+import net.runelite.client.events.PartyChanged;
 import net.runelite.client.party.PartyMember;
 import net.runelite.client.party.PartyService;
 import net.runelite.client.party.WSClient;
 import net.runelite.client.party.messages.UserSync;
+import net.runelite.client.party.events.UserJoin;
+import net.runelite.client.party.events.UserPart;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDependency;
 import net.runelite.client.plugins.PluginDescriptor;
@@ -166,7 +169,7 @@ public class CombatLoggerPlugin extends Plugin
 	private OverlayManager overlayManager;
 
 	@Inject
-	private DamageOverlay damageOverlay;
+	private CombatLoggerOverlay damageOverlay;
 
 	private CombatLoggerPanel panel;
 
@@ -320,7 +323,6 @@ public class CombatLoggerPlugin extends Plugin
 			{
 				// It's been 1 minute (or 5 minutes in a ToA path) without any activity. End the fight
 				currentFight.setOver(true);
-				damageOverlay.updateOverlay();
 			}
 		}
 
@@ -1077,11 +1079,27 @@ public class CombatLoggerPlugin extends Plugin
 		}
 	}
 
-	/**
-	 * Sets the overlay visibility based on the provided parameter.
-	 *
-	 * @param visible If true, the overlay is shown; if false, it is hidden.
-	 */
+	// client user join/leaves a party
+	@Subscribe
+	public void onPartyChanged(PartyChanged ev)
+	{
+		damageOverlay.clearAvatarCache();
+	}
+
+	// a member joins the current party
+	@Subscribe
+	public void onUserJoin(UserJoin ev)
+	{
+		damageOverlay.clearAvatarCache();
+	}
+
+	// a member leaves the current party
+	@Subscribe
+	public void onUserPart(UserPart ev)
+	{
+		damageOverlay.clearAvatarCache();
+	}
+
 	public void setOverlayVisible(boolean visible)
 	{
 		if (visible && config.enableOverlay())
@@ -1174,6 +1192,7 @@ public class CombatLoggerPlugin extends Plugin
 						.setOption("Select Fight")
 						.setTarget("")
 						.setType(MenuAction.RUNELITE)
+						.setType(MenuAction.RUNELITE_OVERLAY)
 						.setDeprioritized(true);
 
 				// Create a submenu for selecting a fight
@@ -1187,7 +1206,7 @@ public class CombatLoggerPlugin extends Plugin
 					submenu.createMenuEntry(i)
 							.setOption(fight.getFightName() + " (" + Fight.formatTime(fight.getFightLengthTicks()) + ")")
 							.setTarget("")
-							.setType(MenuAction.RUNELITE)
+							.setType(MenuAction.RUNELITE_OVERLAY)
 							.onClick((e) -> fightManager.setSelectedFight(fight));
 					i--;
 				}
@@ -1200,14 +1219,14 @@ public class CombatLoggerPlugin extends Plugin
 			newEntries.add(client.createMenuEntry(-4)
 					.setOption("Clear All Fights")
 					.setTarget("")
-					.setType(MenuAction.RUNELITE)
+					.setType(MenuAction.RUNELITE_OVERLAY)
 					.onClick((me) -> fightManager.clearFights()));
 
 			// Add "End Current Fight" entry last
 			newEntries.add(client.createMenuEntry(-5)
 					.setOption("End Current Fight")
 					.setTarget("")
-					.setType(MenuAction.RUNELITE)
+					.setType(MenuAction.RUNELITE_OVERLAY)
 					.onClick((me) -> fightManager.endCurrentFight()));
 
 			// Convert the new entries list to an array
