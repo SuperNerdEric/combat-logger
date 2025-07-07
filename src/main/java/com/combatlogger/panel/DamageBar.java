@@ -28,13 +28,13 @@ public class DamageBar extends JPanel
 	private final JLabel leftLabel = new JShadowedLabel();
 	private final JLabel rightLabel = new JShadowedLabel();
 
-	public DamageBar()
+	public DamageBar(Color barForeground, Color labelForeground)
 	{
 		setLayout(new GridBagLayout());
 		GridBagConstraints gbc = new GridBagConstraints();
 
 		setBackground(new Color(61, 56, 49));
-		setForeground(new Color(139, 0, 0));
+		setForeground(barForeground);
 
 		setPreferredSize(new Dimension(100, 25));
 
@@ -43,7 +43,7 @@ public class DamageBar extends JPanel
 		setMaximumSize(new Dimension(1000, 25));
 
 		leftLabel.setFont(FontManager.getRunescapeFont());
-		leftLabel.setForeground(Color.WHITE);
+		leftLabel.setForeground(labelForeground);
 		leftLabel.setBorder(new EmptyBorder(2, 5, 0, 0));
 		gbc.gridx = 0;
 		gbc.gridy = 0;
@@ -52,7 +52,7 @@ public class DamageBar extends JPanel
 		add(leftLabel, gbc);
 
 		rightLabel.setFont(FontManager.getRunescapeFont());
-		rightLabel.setForeground(Color.WHITE);
+		rightLabel.setForeground(labelForeground);
 		rightLabel.setHorizontalAlignment(SwingConstants.RIGHT);
 		rightLabel.setBorder(new EmptyBorder(2, 0, 0, 5));
 		gbc.gridx = 2;

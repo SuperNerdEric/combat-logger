@@ -35,7 +35,12 @@ public abstract class DamageBarsPanel extends JPanel
 
 	protected DamageBar createDamageBar(PlayerStats stats, int maximumValue)
 	{
-		DamageBar damageBar = new DamageBar();
+		// Assign color to the DamageBar
+		if (stats.getColor() == null)
+		{
+			stats.setColor(fightManager.getPlayerColor(stats.getName()));
+		}
+		DamageBar damageBar = new DamageBar(stats.getColor(), fightManager.getContrastingColor(stats.getColor()));
 		damageBar.setMaximumValue(maximumValue);
 		damageBar.setValue(stats.getDamage());
 		damageBar.setLeftLabel(stats.getName());
@@ -48,13 +53,6 @@ public abstract class DamageBarsPanel extends JPanel
 		{
 			damageBar.setRightLabel(String.format("%d (%s, %.2f%%)", stats.getDamage(), stats.getTicks(), stats.getPercentDamage()));
 		}
-
-		// Assign color to the DamageBar
-		if (stats.getColor() == null)
-		{
-			stats.setColor(fightManager.getPlayerColor(stats.getName()));
-		}
-		damageBar.setForeground(stats.getColor());
 		return damageBar;
 	}
 

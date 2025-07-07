@@ -25,7 +25,7 @@ import net.runelite.client.ui.overlay.tooltip.Tooltip;
 import net.runelite.client.ui.overlay.tooltip.TooltipManager;
 import net.runelite.client.util.ImageUtil;
 
-public class DamageOverlay extends OverlayPanel
+public class CombatLoggerOverlay extends OverlayPanel
 {
 	private final CombatLoggerPlugin combatLoggerPlugin;
 	private final PartyService partyService;
@@ -54,7 +54,7 @@ public class DamageOverlay extends OverlayPanel
 	static final int DEFAULT_BAR_ALPHA = 255;
 
 	@Inject
-	public DamageOverlay(
+	public CombatLoggerOverlay(
 			CombatLoggerPlugin plugin,
 			Client client,
 			CombatLoggerConfig config,
@@ -116,9 +116,6 @@ public class DamageOverlay extends OverlayPanel
 			return null;
 		}
 
-		String fightName = selectedFight.getFightName() + " (" + Fight.formatTime(selectedFight.getFightLengthTicks()) + ")";
-		boolean showAvatars = config.showOverlayAvatar();
-		int overlayAlpha = (int) Math.round((opacity / 100.0) * 255);
 
 		Dimension currentSize = this.getBounds().getSize();
 
@@ -135,13 +132,15 @@ public class DamageOverlay extends OverlayPanel
 		FontMetrics metrics = graphics.getFontMetrics();
 
 		// Draw the background for the entire overlay with adjusted transparency
-		graphics.setColor(new Color(50, 50, 50, (int) Math.round((opacity / 100.0) * DEFAULT_BACKGROUND_ALPHA))); // Semi-transparent gray background
+		int bgOpacity = (int) Math.round( (opacity / 100.0) * (config.backgroundOpacity() / 100.0)  * 255); // take the lowest between opacity and bg opacity
+		graphics.setColor(new Color(50, 50, 50, (int) Math.round((opacity / 100.0) * bgOpacity))); // Semi-transparent gray background
 		graphics.fillRect(0, 0, currentSize.width, currentSize.height);
 
 		// Draw the header background with adjusted transparency
 		graphics.setColor(new Color(30, 30, 30, (int) Math.round((opacity / 100.0) * DEFAULT_HEADER_ALPHA))); // Slightly darker semi-transparent background
 		graphics.fillRect(0, 0, currentSize.width, LINE_HEIGHT);
 
+		final boolean showAvatars = config.showOverlayAvatar();
 		final Rectangle overlayBounds = this.getBounds();
 		final int avatarSize = showAvatars ? LINE_HEIGHT : 0;
 
@@ -165,16 +164,68 @@ public class DamageOverlay extends OverlayPanel
 				tooltipManager.add(new Tooltip("Right click for Combat Logger overlay settings"));
 			}
 		}
+		String baseLabel = "Damage: ";
+		String fightName = selectedFight.getFightName();
+		String fightLength = " (" + Fight.formatTime(selectedFight.getFightLengthTicks()) + ")";
 
-		int availableFightNameWidth = currentSize.width - (settingsIcon != null ? settingsIcon.getWidth() + 6 : 6); // Adjust if settings icon is present
-		String truncatedFightName = truncateText("Damage: " + fightName, metrics, availableFightNameWidth);
+		int availableHeaderWidth = currentSize.width - (settingsIcon != null ? settingsIcon.getWidth() + 6 : 6);
+		int labelWidth = metrics.stringWidth(baseLabel);
+		int nameWidth = metrics.stringWidth(fightName);
+		int lengthWidth = metrics.stringWidth(fightLength);
+		int totalWidth = labelWidth + nameWidth + lengthWidth;
+
+		String displayLabel = baseLabel;
+		String displayName = fightName;
+		String displayLength = fightLength;
+
+		// header text overflows the bounding box
+		if (totalWidth > availableHeaderWidth)
+		{
+			// first truncate encounter name
+			int maxNameWidth = availableHeaderWidth - labelWidth - lengthWidth;
+			if (maxNameWidth < 0) maxNameWidth = 0;
+			if (nameWidth > maxNameWidth)
+			{
+				displayName = truncateText(fightName, metrics, maxNameWidth);
+				if(displayName.equals("...")) displayName = "";
+				nameWidth = metrics.stringWidth(displayName);
+				totalWidth = labelWidth + nameWidth + lengthWidth;
+			}
+
+			// still overflows, truncate base label
+			if (totalWidth > availableHeaderWidth)
+			{
+				int maxLabelWidth = availableHeaderWidth - nameWidth - lengthWidth;
+				if (maxLabelWidth < 0) maxLabelWidth = 0;
+				if (labelWidth > maxLabelWidth)
+				{
+					displayLabel = truncateText(baseLabel, metrics, maxLabelWidth);
+					if(displayLabel.equals("...")) displayLabel = "";
+					labelWidth = metrics.stringWidth(displayLabel);
+					totalWidth = labelWidth + nameWidth + lengthWidth;
+				}
+			}
+
+			// STILL overflows, truncate fight length
+			if (totalWidth > availableHeaderWidth)
+			{
+				int maxLengthWidth = availableHeaderWidth - labelWidth - nameWidth;
+				if (maxLengthWidth < 0) maxLengthWidth = 0;
+				if (lengthWidth > maxLengthWidth)
+				{
+					displayLength = truncateText(fightLength, metrics, maxLengthWidth);
+				}
+			}
+		}
+
+		String header = displayLabel + displayName + displayLength;
 
 		// Position the header text vertically centered
 		int headerTextY = (LINE_HEIGHT - metrics.getHeight()) / 2 + metrics.getAscent();
 
 		// Draw the header text
 		graphics.setColor(new Color(255, 255, 255, (int) Math.round((opacity / 100.0) * 255)));
-		graphics.drawString(truncatedFightName, 3, headerTextY + 1);
+		graphics.drawString(header, 3, headerTextY + 1);
 
 		int yPosition = LINE_HEIGHT;
 		int maxRows = Math.min(((int) Math.floor((double) currentSize.height - LINE_HEIGHT) / LINE_HEIGHT), playerStats.size());
@@ -200,27 +251,28 @@ public class DamageOverlay extends OverlayPanel
 			int availableBarWidth = showAvatars ? (currentSize.width - avatarSize) : currentSize.width;
 			int barLength = (int) ((double) damage / maxDamage * availableBarWidth);
 
+
 			BufferedImage avatarImage = null;
 			if (showAvatars)
 			{
 				avatarImage = avatarCache.get(playerName);
-				PartyMember partyMember = partyService.getMemberByDisplayName(playerName);
 
-				// Fetch and cache avatar
 				if (avatarImage == null)
 				{
-					if (partyMember != null && partyMember.getAvatar() != null)
+					PartyMember partyMember = partyService.getMemberByDisplayName(playerName);
+					BufferedImage cachedAvatar = partyMember != null ? partyMember.getAvatar() : null;
+
+					if (cachedAvatar != null)
 					{
-						avatarImage = ImageUtil.resizeImage(partyMember.getAvatar(), avatarSize, avatarSize);
+						avatarImage = ImageUtil.resizeImage(cachedAvatar, avatarSize, avatarSize);
+						avatarCache.put(playerName, avatarImage);
 					}
 					else
 					{
 						avatarImage = ImageUtil.resizeImage(defaultAvatar, avatarSize, avatarSize);
 					}
-					avatarCache.put(playerName, avatarImage);
 				}
 			}
-
 
 			// Draw avatar or skip if avatars are hidden
 			int avatarX = 0;
@@ -264,8 +316,13 @@ public class DamageOverlay extends OverlayPanel
 			}
 			int rowY = yPosition + ((LINE_HEIGHT - metrics.getHeight()) / 2) + metrics.getAscent();
 
-			// Damage text
-			graphics.setColor(new Color(255, 255, 255, (int) Math.round((opacity / 100.0) * 255)));
+			Color fontColor = fightManager.getContrastingColor(playerColor);
+			graphics.setColor(new Color(
+					fontColor.getRed(),
+					fontColor.getGreen(),
+					fontColor.getBlue(),
+					(int) Math.round((opacity / 100.0) * 255)
+			));
 			String damageText = String.format("%d %s", damage, secondaryText);
 			int damageTextXPosition = currentSize.width - metrics.stringWidth(damageText) - 2; // 2 pixels padding from the right edge
 			graphics.drawString(damageText, damageTextXPosition, rowY + 1);
@@ -326,12 +383,4 @@ public class DamageOverlay extends OverlayPanel
 		avatarCache.clear();
 	}
 
-	/**
-	 * Runelite redraws UI every frame, so a manual repaint isn't required.
-	 * This will clear caches to ensure player/avatar data is updated.
-	 */
-	public void updateOverlay()
-	{
-		clearAvatarCache();
-	}
 }

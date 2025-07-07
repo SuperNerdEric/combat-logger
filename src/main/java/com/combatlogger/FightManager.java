@@ -478,6 +478,14 @@ public class FightManager
 	}
 
 	/**
+	 * Returns either black or white based on the luminance of the provided color (ITU-R BT.601-7 FORMULA)
+	 */
+	public Color getContrastingColor(Color bg) {
+		double luminance = 0.299 * bg.getRed() + 0.587 * bg.getGreen() + 0.114 * bg.getBlue();
+		return luminance > 128 ? Color.BLACK : Color.WHITE;
+	}
+
+	/**
 	 * Subscribe to configuration changes to update player colors when relevant config options change.
 	 *
 	 * @param event The ConfigChanged event.
