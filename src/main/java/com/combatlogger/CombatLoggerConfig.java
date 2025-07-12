@@ -121,7 +121,7 @@ public interface CombatLoggerConfig extends Config
 	@ConfigItem(
 			keyName = "backgroundOpacity",
 			name = "Background Opacity",
-			description = "Transparency of the overlay's grey box",
+			description = "Transparency of the overlay's background",
 			section = overlaySection,
 			position = 31
 	)

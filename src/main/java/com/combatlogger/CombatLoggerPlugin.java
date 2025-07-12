@@ -1079,21 +1079,18 @@ public class CombatLoggerPlugin extends Plugin
 		}
 	}
 
-	// client user join/leaves a party
 	@Subscribe
 	public void onPartyChanged(PartyChanged ev)
 	{
 		damageOverlay.clearAvatarCache();
 	}
 
-	// a member joins the current party
 	@Subscribe
 	public void onUserJoin(UserJoin ev)
 	{
 		damageOverlay.clearAvatarCache();
 	}
 
-	// a member leaves the current party
 	@Subscribe
 	public void onUserPart(UserPart ev)
 	{
