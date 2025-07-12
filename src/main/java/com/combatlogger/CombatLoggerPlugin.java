@@ -87,7 +87,7 @@ public class CombatLoggerPlugin extends Plugin
 	private static final String LOG_FILE_NAME = "combat_log";
 	public static File LOG_FILE;
 
-	private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("MM-dd-yyyy HH:mm:ss", Locale.ENGLISH);
+	private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("MM-dd-yyyy HH:mm:ss 'Z'Z", Locale.ENGLISH);
 	private static final Pattern ENCOUNTER_PATTERN = Pattern.compile("(Wave|Duration|Challenge)", Pattern.CASE_INSENSITIVE);
 
 	private static final List<Integer> TOB_ORBS_VARBITS = Arrays.asList(
