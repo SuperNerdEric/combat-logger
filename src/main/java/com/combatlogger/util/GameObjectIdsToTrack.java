@@ -15,6 +15,7 @@ public class GameObjectIdsToTrack
 			45573, // Zebak poison
 			45574, // Zebak poison
 			45575, // Zebak poison
-			45576 // Zebak poison
+			45576, // Zebak poison
+			57283 // Doom of Mokhaiotl acid blood
 	));
 }
