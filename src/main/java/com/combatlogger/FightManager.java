@@ -43,6 +43,9 @@ public class FightManager
 	private final Client client;
 	private final Map<String, Color> playerColors = new ConcurrentHashMap<>();
 	private final EventBus eventBus;
+	@Getter
+    private Fight overallFight = null;
+
 
 	@Getter
 	private final BoundedQueue<Fight> fights = new BoundedQueue<>(20);
@@ -101,8 +104,26 @@ public class FightManager
 		eventBus.unregister(this);
 	}
 
+	public void startOverallMode()
+	{
+		overallFight = new Fight();
+		overallFight.setFightName("Overall");
+		overallFight.setMainTarget("Overall");
+		overallFight.setOver(false);
+	}
 
-	public List<PlayerStats> getPlayerDamageForFight(Fight fight)
+	public void stopOverallMode()
+	{
+		if (overallFight != null)
+		{
+			overallFight.setOver(true);
+			// You might want to add the overallFight to the regular fights list here to view it after stopping
+			fights.add(overallFight);
+			overallFight = null;
+		}
+	}
+
+    public List<PlayerStats> getPlayerDamageForFight(Fight fight)
 	{
 		if (fight == null)
 		{
@@ -204,6 +225,13 @@ public class FightManager
 		fights.clear();
 		selectedFight = null;
 		clearPlayerColors();  // Optionally clear player colors when clearing fights
+
+		// Add this check to reset the overall fight
+		if (config.overallMode())
+		{
+			// Re-initialize the overall session
+			startOverallMode();
+		}
 	}
 
 	/**
@@ -254,6 +282,25 @@ public class FightManager
 
 	public void addDamage(DamageLog damageLog)
 	{
+		// --- Overall Mode Logic ---
+		// If overall mode is enabled, we only log damage to the overallFight session.
+		if (config.overallMode())
+		{
+			if (overallFight != null)
+			{
+				// Update the last activity tick to keep the session alive
+				overallFight.setLastActivityTick(client.getTickCount());
+				// Get or create player data for the damage source
+				Fight.PlayerData playerData = overallFight.getPlayerDataMap().computeIfAbsent(damageLog.getSource(), Fight.PlayerData::new);
+				// Add the damage amount to the player's stats
+				playerData.addDamage(damageLog.getTargetName(), damageLog.getDamageAmount());
+			}
+			// IMPORTANT: We return here to prevent the code below from running,
+			// which would create a new, separate fight for this damage event.
+			return;
+		}
+		// --- End of Overall Mode Logic ---
+
 		if (NON_DAMAGE_HITSPLATS.contains(damageLog.getHitsplatName()))
 		{
 			return;
@@ -316,6 +363,25 @@ public class FightManager
 
 	public void addTicks(AttackAnimationLog attackAnimationLog)
 	{
+		// --- Overall Mode Logic ---
+		// If overall mode is enabled, we only log activity ticks to the overallFight session.
+		if (config.overallMode())
+		{
+			if (overallFight != null)
+			{
+				// Update the last activity tick
+				overallFight.setLastActivityTick(client.getTickCount());
+				// Get or create player data for the attacker
+				Fight.PlayerData playerData = overallFight.getPlayerDataMap().computeIfAbsent(attackAnimationLog.getSource(), Fight.PlayerData::new);
+				// Add the activity ticks based on the animation/weapon used
+				playerData.addActivityTicks(attackAnimationLog.getTargetName(),
+						AnimationIds.getTicks(attackAnimationLog.getAnimationId(), attackAnimationLog.getWeaponId()));
+			}
+			// IMPORTANT: Return here to prevent creating a new, separate fight.
+			return;
+		}
+		// --- End of Overall Mode Logic ---
+
 		Fight currentFight;
 
 		if (fights.isEmpty() || fights.peekLast().isOver())
