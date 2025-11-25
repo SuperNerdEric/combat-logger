@@ -62,6 +62,19 @@ public interface CombatLoggerConfig extends Config
 		return new Color(139, 15, 16);
 	}
 
+	/**
+	 * Configuration item for enabling the "Overall" fight mode.
+	 * When enabled, all combat data is logged into a single, continuous fight session
+	 * instead of creating a new session for each encounter.
+	 */
+	@ConfigItem(
+			keyName = "overallMode",
+			name = "Enable Overall Mode",
+			description = "Logs all damage into a single 'Overall' fight until disabled.",
+			position = 3
+	)
+	default boolean overallMode() { return false; }
+
 	/* Overlay Settings
 	 * POSITIONS: 26-49
 	 * */
