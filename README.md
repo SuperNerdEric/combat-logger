@@ -41,5 +41,5 @@ Logs are stored in `.runelite\combat_log`
       Example: `Player equipment is [19649, 21780, 12002, 27275, 21021, 21024, 19544, 13235, 28313]`
 
 4. **Boosted Levels:**
-    - Boosted levels are reported in this order: attack, strength, defence, ranged, magic, hitpoints, prayer.  
-      Example: `Boosted levels are [99, 99, 99, 99, 99, 99, 99]`
+    - Boosted levels are reported in this order: attack, strength, defence, ranged, magic, hitpoints, prayer, sailing.  
+      Example: `Boosted levels are [99, 99, 99, 99, 99, 99, 99, 99]`

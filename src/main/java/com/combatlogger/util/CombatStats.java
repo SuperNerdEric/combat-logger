@@ -16,7 +16,8 @@ public class CombatStats
 				client.getRealSkillLevel(Skill.RANGED),
 				client.getRealSkillLevel(Skill.MAGIC),
 				client.getRealSkillLevel(Skill.HITPOINTS),
-				client.getRealSkillLevel(Skill.PRAYER)
+				client.getRealSkillLevel(Skill.PRAYER),
+				client.getRealSkillLevel(Skill.SAILING)
 		);
 	}
 
@@ -29,7 +30,8 @@ public class CombatStats
 				client.getBoostedSkillLevel(Skill.RANGED),
 				client.getBoostedSkillLevel(Skill.MAGIC),
 				client.getBoostedSkillLevel(Skill.HITPOINTS),
-				client.getBoostedSkillLevel(Skill.PRAYER)
+				client.getBoostedSkillLevel(Skill.PRAYER),
+				client.getRealSkillLevel(Skill.SAILING)
 		);
 	}
 }
