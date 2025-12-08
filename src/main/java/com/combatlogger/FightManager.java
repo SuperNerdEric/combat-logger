@@ -33,6 +33,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.combatlogger.CombatLoggerPlugin.getCurrentTimestamp;
+import static com.combatlogger.util.BoatIds.BOAT_IDS;
 import static com.combatlogger.util.BossIds.*;
 import static com.combatlogger.util.HitSplatUtil.NON_DAMAGE_HITSPLATS;
 import static com.combatlogger.util.IdParser.parseId;
@@ -256,6 +257,12 @@ public class FightManager
 	{
 		if (NON_DAMAGE_HITSPLATS.contains(damageLog.getHitsplatName()))
 		{
+			return;
+		}
+
+		if (BOAT_IDS.contains(parseId(damageLog.getTarget())))
+		{
+			// Exclude boats from damage meter - there's not even a clear way to tell whose boat is being damaged
 			return;
 		}
 

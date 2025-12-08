@@ -46,6 +46,7 @@ public class HitSplatUtil
 		names.put(72, "SANITY_RESTORE");
 		names.put(73, "DOOM");
 		names.put(74, "BURN");
+		names.put(79, "DAMAGE_BOAT");
 
 		return names;
 	}
