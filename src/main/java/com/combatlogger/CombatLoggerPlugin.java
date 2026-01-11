@@ -181,6 +181,11 @@ public class CombatLoggerPlugin extends Plugin
 		return configManager.getConfig(CombatLoggerConfig.class);
 	}
 
+	/**
+	 * This method is called when the plugin is started.
+	 * We need to check the state of the config here to initialize the plugin correctly,
+	 * as onConfigChanged won't fire for settings that are already enabled on startup.
+	 */
 	@Override
 	protected void startUp()
 	{
@@ -209,8 +214,19 @@ public class CombatLoggerPlugin extends Plugin
 			setOverlayVisible(true);
 			resetOverlayTimeout();
 		}
+
+		// Check if "Overall Mode" is enabled in the configuration when the plugin starts.
+		if (config.overallMode())
+		{
+			// If it is, we must manually start the session.
+			fightManager.startOverallMode();
+		}
 	}
 
+	/**
+	 * This method is called when the plugin is stopped.
+	 * It's good practice to clean up and finalize any ongoing sessions.
+	 */
 	@Override
 	protected void shutDown()
 	{
@@ -233,6 +249,9 @@ public class CombatLoggerPlugin extends Plugin
 		logQueueManager.shutDown(eventBus);
 		fightManager.shutDown();
 		setOverlayVisible(false);
+		// If the "Overall" fight is active, this will properly end it and add it
+		// to the fight history dropdown.
+		fightManager.stopOverallMode();
 	}
 
 
@@ -294,9 +313,29 @@ public class CombatLoggerPlugin extends Plugin
 		);
 	}
 
+
+	/**
+	 * Called on every in-game tick (0.6 seconds).
+	 * This method is used for time-based updates, like incrementing fight timers.
+	 */
 	@Subscribe
 	public void onGameTick(GameTick event)
 	{
+		// --- Overall Mode Timer Logic ---
+		// This block handles the timer for the "Overall" fight mode.
+		// It's placed in onGameTick to ensure the timer increments accurately once per tick,
+		// preventing the bug where it increased with every damage event.
+		if (config.overallMode())
+		{
+			Fight overallFight = fightManager.getOverallFight();
+			// Only increment the timer if the overall fight exists and is not considered over
+			if (overallFight != null && !overallFight.isOver())
+			{
+				overallFight.setFightLengthTicks(overallFight.getFightLengthTicks() + 1);
+			}
+		}
+		// --- End of Overall Mode Logic ---
+
 		Fight currentFight = fightManager.getLastFight();
 		boolean fightOngoing = currentFight != null && !currentFight.isOver();
 
@@ -326,7 +365,7 @@ public class CombatLoggerPlugin extends Plugin
 			}
 		}
 
-		panel.updatePanel();
+		panel.updatePanel(config);
 
 		if (checkPlayerName && client.getLocalPlayer() != null && client.getLocalPlayer().getName() != null)
 		{
@@ -1234,7 +1273,10 @@ public class CombatLoggerPlugin extends Plugin
 		}
 	}
 
-
+	/**
+	 * Handles configuration changes for the plugin.
+	 * Specifically, this starts or stops the "Overall" fight mode when the setting is toggled.
+	 */
 	@Subscribe
 	public void onConfigChanged(ConfigChanged event)
 	{
@@ -1246,12 +1288,12 @@ public class CombatLoggerPlugin extends Plugin
 		switch (event.getKey())
 		{
 			case "secondaryMetric":
-				panel.updatePanel();
+				panel.updatePanel(config);
 				break;
 
 			case "selfDamageMeterColor":
 				fightManager.clearPlayerColors();
-				panel.updatePanel();
+				panel.updatePanel(config);
 				break;
 
 			case "enableOverlay":
@@ -1276,6 +1318,21 @@ public class CombatLoggerPlugin extends Plugin
 			case "overlayOpacity":
 				damageOverlay.setOpacity(config.overlayOpacity());
 				break;
+		}
+
+		// If the "overallMode" setting was changed, handle it
+		if (event.getKey().equals("overallMode"))
+		{
+			if (config.overallMode())
+			{
+				// If the user enabled overall mode, start a new session
+				fightManager.startOverallMode();
+			}
+			else
+			{
+				// If the user disabled overall mode, stop the current session
+				fightManager.stopOverallMode();
+			}
 		}
 	}
 

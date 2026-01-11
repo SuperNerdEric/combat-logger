@@ -92,14 +92,14 @@ public class CombatLoggerPanel extends PluginPanel
 		cardLayout = new CardLayout();
 		damageMeterPanel = new JPanel(cardLayout);
 
-		updateFightsComboBox(fightManager.getFights());
+		updateFightsComboBox(config,fightManager.getFights());
 
 		JButton clearFightsButton = createButton(CLOSE_ICON, "Clear all fights", () ->
 		{
 			if (isConfirmed("Are you sure you want to clear all fights?", "Clear all fights"))
 			{
 				fightManager.clearFights();
-				updateFightsComboBox(fightManager.getFights());
+				updateFightsComboBox(config,fightManager.getFights());
 				updateOverviewPanel(new ArrayList<>());
 				showOverviewPanel();
 			}
@@ -165,11 +165,15 @@ public class CombatLoggerPanel extends PluginPanel
 		currentFightLengthLabel.setText(fightLength);
 	}
 
-	public void updateFightsComboBox(BoundedQueue<Fight> fights)
+	public void updateFightsComboBox(CombatLoggerConfig config, BoundedQueue<Fight> fights)
 	{
 		List<Fight> updatedFights = new ArrayList<>();
 		// Reverse order so the newest fights are first
 		fights.descendingIterator().forEachRemaining(updatedFights::add);
+
+		if (config.overallMode() && fightManager.getOverallFight() != null) {
+			updatedFights.add(0, fightManager.getOverallFight()); // Add overall fight to the top
+		}
 
 		List<Fight> existingFights = new ArrayList<>();
 		for (int i = 0; i < fightsComboBox.getItemCount(); i++)
@@ -213,9 +217,15 @@ public class CombatLoggerPanel extends PluginPanel
 	/**
 	 * Update the panel with the latest data
 	 */
-	public void updatePanel()
+	public void updatePanel(CombatLoggerConfig config)
 	{
-		selectedFight = fightManager.getSelectedFight();
+		// If in overall mode, force the selected fight to be the overall fight
+		if (config.overallMode() && fightManager.getOverallFight() != null) {
+			selectedFight = fightManager.getOverallFight();
+		} else {
+			selectedFight = fightManager.getSelectedFight();
+		}
+
 		if (selectedFight != null)
 		{
 			List<PlayerStats> playerStats = fightManager.getPlayerDamageForFight(selectedFight);
@@ -227,7 +237,7 @@ public class CombatLoggerPanel extends PluginPanel
 			updateCurrentFightLength("00:00");
 		}
 
-		updateFightsComboBox(fightManager.getFights());
+		updateFightsComboBox(config,fightManager.getFights());
 	}
 }
 
