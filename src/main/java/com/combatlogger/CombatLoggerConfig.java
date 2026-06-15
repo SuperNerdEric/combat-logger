@@ -1,46 +1,65 @@
 package com.combatlogger;
 
-import net.runelite.client.config.*;
+import net.runelite.client.config.Config;
+import net.runelite.client.config.ConfigGroup;
+import net.runelite.client.config.ConfigItem;
+import net.runelite.client.config.ConfigSection;
+import net.runelite.client.config.Range;
+import net.runelite.client.config.Units;
 
 import java.awt.*;
 
 @ConfigGroup("combatlogger")
 public interface CombatLoggerConfig extends Config
 {
-	// SECTIONS
 	@ConfigSection(
 			position = 0,
+			name = "Runelogs",
+			description = "Runelogs live logging settings"
+	)
+	String runelogsSection = "runelogsSection";
+
+	@ConfigSection(
+			position = 10,
 			name = "Damage Meter",
 			description = "Damage Meter (Overlay + Panel)"
 	)
 	String damageMeterSection = "damageMeterSection";
 
 	@ConfigSection(
-			position = 25,
+			position = 35,
 			name = "Overlay",
 			description = "Overlay Settings"
 	)
 	String overlaySection = "overlaySettings";
 
 	@ConfigSection(
-			position = 50,
+			position = 60,
 			name = "Debug",
 			description = "Debug",
 			closedByDefault = true
 	)
 	String debugSection = "debugSection";
 
+	@ConfigItem(
+			keyName = "runelogsAccessKey",
+			name = "Runelogs Access Key",
+			description = "Access key from runelogs.com/live-log used for live logging",
+			section = runelogsSection,
+			position = 0,
+			secret = true
+	)
+	default String runelogsAccessKey()
+	{
+		return "";
+	}
 
-	/* Damage Meter Settings (currently affects both overlay and panel)
-	 * POSITIONS: 1-24
-	 * */
 	@ConfigItem(
 			keyName = "secondaryMetric",
 			name = "Secondary Metric",
 			description = "Which Secondary Metric to display alongside Damage - e.g. Damage (DPS, %)",
 			section = damageMeterSection,
 			position = 1
-
 	)
 	default SecondaryMetric secondaryMetric()
 	{
@@ -62,9 +81,6 @@ public interface CombatLoggerConfig extends Config
 		return new Color(139, 15, 16);
 	}
 
-	/* Overlay Settings
-	 * POSITIONS: 26-49
-	 * */
 	@ConfigItem(
 			keyName = "enableOverlay",
 			name = "Enable Overlay",
@@ -127,10 +143,6 @@ public interface CombatLoggerConfig extends Config
 	)
 	default int backgroundOpacity() { return 60; }
 
-
-	/* Debug Settings
-	 * POSITIONS: 51-74
-	 * */
 	@ConfigItem(
 			keyName = "logInChat",
 			name = "Log In Chat (Debug)",
@@ -144,6 +156,4 @@ public interface CombatLoggerConfig extends Config
 	{
 		return false;
 	}
-
-
 }

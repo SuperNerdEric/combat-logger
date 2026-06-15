@@ -184,7 +184,7 @@ public class FightManager
 	{
 		if (!fights.isEmpty() && !fights.peekLast().isOver())
 		{
-			fights.peekLast().setOver(true);
+			fights.peekLast().end(client.getTickCount());
 		}
 	}
 
@@ -266,9 +266,19 @@ public class FightManager
 			return;
 		}
 
-		Fight currentFight;
+		Fight currentFight = null;
 
-		if (fights.isEmpty() || fights.peekLast().isOver())
+		if (!fights.isEmpty())
+		{
+			Fight lastFight = fights.peekLast();
+			if (lastFight.isOver() && lastFight.getEndedTick() == damageLog.getTickCount())
+			{
+				// Death can be logged before damage on the same tick; credit this damage to the ended fight
+				currentFight = lastFight;
+			}
+		}
+
+		if (currentFight == null && (fights.isEmpty() || fights.peekLast().isOver()))
 		{
 			if (damageLog.getSource().equals("Unknown")
 					&& !BOSS_IDS.contains(parseId(damageLog.getTarget()))
@@ -284,10 +294,9 @@ public class FightManager
 			fights.add(currentFight);
 			selectedFight = currentFight; // Set the new fight as the selected fight
 		}
-		else
+		else if (currentFight == null)
 		{
 			currentFight = fights.peekLast();
-
 			if (
 					BOSS_IDS.contains(parseId(damageLog.getTarget()))
 							&& (
@@ -323,9 +332,19 @@ public class FightManager
 
 	public void addTicks(AttackAnimationLog attackAnimationLog)
 	{
-		Fight currentFight;
+		Fight currentFight = null;
 
-		if (fights.isEmpty() || fights.peekLast().isOver())
+		if (!fights.isEmpty())
+		{
+			Fight lastFight = fights.peekLast();
+			if (lastFight.isOver() && lastFight.getEndedTick() == attackAnimationLog.getTickCount())
+			{
+				// Death can be logged before other events on the same tick; credit this to the ended fight
+				currentFight = lastFight;
+			}
+		}
+
+		if (currentFight == null && (fights.isEmpty() || fights.peekLast().isOver()))
 		{
 			if (!attackAnimationLog.getSource().equals(client.getLocalPlayer().getName())
 					&& !BOSS_IDS.contains(parseId(attackAnimationLog.getTarget()))
@@ -341,7 +360,7 @@ public class FightManager
 			fights.add(currentFight);
 			selectedFight = currentFight; // Set the new fight as the selected fight
 		}
-		else
+		else if (currentFight == null)
 		{
 			currentFight = fights.peekLast();
 		}
@@ -363,7 +382,7 @@ public class FightManager
 		if (!fights.isEmpty() && !fights.peekLast().isOver() && fights.peekLast().getMainTarget().equals(deathLog.getTarget()))
 		{
 			// The main fight target has died; end the fight
-			fights.peekLast().setOver(true);
+			fights.peekLast().end(deathLog.getTickCount());
 		}
 	}
 
@@ -385,7 +404,7 @@ public class FightManager
 		{
 			if (!fights.isEmpty() && !fights.peekLast().isOver())
 			{
-				fights.peekLast().setOver(true);
+				fights.peekLast().end(gameMessageLog.getTickCount());
 			}
 		}
 	}

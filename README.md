@@ -16,9 +16,10 @@ Logs are stored in `.runelite\combat_log`
 ![img.png](img.png)
 
 
-## Chat Command
+## Chat Commands
 
 - `::newlog` - Creates a new log file
+- `::livelog` - Enables or disables Runelogs live logging
 
 ## Reading the logs
 

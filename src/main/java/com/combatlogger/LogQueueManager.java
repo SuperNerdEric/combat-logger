@@ -43,6 +43,9 @@ public class LogQueueManager
 	private FightManager fightManager;
 
 	@Inject
+	private LiveLogClient liveLogClient;
+
+	@Inject
 	private LogQueueManager(Client client)
 	{
 		this.client = client;
@@ -101,9 +104,10 @@ public class LogQueueManager
 
 	private void log(int tickCount, String timestamp, String message)
 	{
+		String formattedLine = String.format("%s %s\t%s", tickCount, timestamp, message);
 		try (BufferedWriter writer = new BufferedWriter(new FileWriter(LOG_FILE, true)))
 		{
-			writer.write(String.format("%s %s\t%s\n", tickCount, timestamp, message));
+			writer.write(String.format("%s\n", formattedLine));
 			if (config.logInChat())
 			{
 				chatMessageManager
@@ -118,6 +122,8 @@ public class LogQueueManager
 		{
 			e.printStackTrace();
 		}
+
+		liveLogClient.onLineLogged(formattedLine);
 	}
 
 	@Subscribe

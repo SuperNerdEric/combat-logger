@@ -23,6 +23,14 @@ public class Fight
 
 	private boolean isOver = false;
 
+	private int endedTick = -1;
+
+	public void end(int tick)
+	{
+		this.isOver = true;
+		this.endedTick = tick;
+	}
+
 	@Override
 	public String toString()
 	{

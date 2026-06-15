@@ -151,6 +151,9 @@ public class CombatLoggerPlugin extends Plugin
 	private LogQueueManager logQueueManager;
 
 	@Inject
+	private LiveLogClient liveLogClient;
+
+	@Inject
 	private FightManager fightManager;
 
 	@Inject
@@ -198,6 +201,7 @@ public class CombatLoggerPlugin extends Plugin
 		DIRECTORY.mkdirs();
 		sendReminderMessage();
 		createLogFile();
+		liveLogClient.setInitialMessageSupplier(this::getInitialMessages);
 		wsClient.registerMessage(DamageMessage.class);
 		wsClient.registerMessage(BaseCombatStatsMessage.class);
 		wsClient.registerMessage(BoostedCombatStatsMessage.class);
@@ -230,6 +234,7 @@ public class CombatLoggerPlugin extends Plugin
 		wsClient.unregisterMessage(PrayerMessage.class);
 		clientToolbar.removeNavigation(navButton);
 		panel = null;
+		liveLogClient.shutDown();
 		logQueueManager.shutDown(eventBus);
 		fightManager.shutDown();
 		setOverlayVisible(false);
@@ -239,24 +244,33 @@ public class CombatLoggerPlugin extends Plugin
 	@Subscribe
 	public void onCommandExecuted(CommandExecuted commandExecuted)
 	{
-		if (!commandExecuted.getCommand().equals("newlog"))
+		String command = commandExecuted.getCommand();
+		if (command.equals("newlog"))
 		{
+			createLogFile();
+			chatMessageManager
+					.queue(QueuedMessage.builder()
+							.type(ChatMessageType.GAMEMESSAGE)
+							.runeLiteFormattedMessage(String.format("<col=cc0000>New combat log created: %s</col>", LOG_FILE.getName()))
+							.build());
 			return;
 		}
 
-		createLogFile();
-		chatMessageManager
-				.queue(QueuedMessage.builder()
-						.type(ChatMessageType.GAMEMESSAGE)
-						.runeLiteFormattedMessage(String.format("<col=cc0000>New combat log created: %s</col>", LOG_FILE.getName()))
-						.build());
-		logEquipment(true); // Normally ItemContainerChanged is fired on startup, so it's not necessary in createLogFile()
-		logPrayers(true);
+		if (command.equals("livelog"))
+		{
+			liveLogClient.setEnabled(!liveLogClient.isEnabled());
+			if (panel != null)
+			{
+				panel.updateLiveLogControls();
+			}
+		}
 	}
 
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged gameStateChanged)
 	{
+		liveLogClient.onGameStateChanged(gameStateChanged.getGameState());
+
 		if (gameStateChanged.getGameState() == GameState.LOGGING_IN)
 		{
 			checkPlayerName = true;
@@ -322,11 +336,12 @@ public class CombatLoggerPlugin extends Plugin
 					|| (currentFight.getLastActivityTick() + 500 < client.getTickCount() && currentFight.getFightName().startsWith("Path of")))
 			{
 				// It's been 1 minute (or 5 minutes in a ToA path) without any activity. End the fight
-				currentFight.setOver(true);
+				currentFight.end(client.getTickCount());
 			}
 		}
 
 		panel.updatePanel();
+		liveLogClient.onGameTick();
 
 		if (checkPlayerName && client.getLocalPlayer() != null && client.getLocalPlayer().getName() != null)
 		{
@@ -379,14 +394,7 @@ public class CombatLoggerPlugin extends Plugin
 	private void logPrayers(boolean forceLogging)
 	{
 		Player player = client.getLocalPlayer();
-		List<Integer> currentPrayers = new ArrayList<>();
-		for (Prayer prayer : Prayer.values())
-		{
-			if (client.isPrayerActive(prayer))
-			{
-				currentPrayers.add(prayer.getVarbit());
-			}
-		}
+		List<Integer> currentPrayers = getCurrentActivePrayers();
 		if (forceLogging || !Objects.equals(currentPrayers, previousPrayers))
 		{
 			if (party.isInParty())
@@ -828,17 +836,11 @@ public class CombatLoggerPlugin extends Plugin
 
 	private void logEquipment(boolean forceLogging)
 	{
-		ItemContainer equipContainer = client.getItemContainer(InventoryID.WORN);
-		if (equipContainer == null)
+		List<Integer> currentItemIds = getCurrentEquipmentItemIds();
+		if (currentItemIds == null)
 		{
 			return;
 		}
-		List<Integer> currentItemIds = Arrays.stream(equipContainer.getItems())
-				.map(Item::getId)
-				.collect(Collectors.toList());
-
-		final int quiverAmmoId = client.getVarpValue(VarPlayerID.DIZANAS_QUIVER_TEMP_AMMO);
-		currentItemIds.add(quiverAmmoId);
 
 		if (forceLogging || !Objects.equals(currentItemIds, previousItemIds))
 		{
@@ -1302,18 +1304,72 @@ public class CombatLoggerPlugin extends Plugin
 		{
 			LOG_FILE = new File(DIRECTORY, LOG_FILE_NAME + "-" + System.currentTimeMillis() + ".txt");
 			LOG_FILE.createNewFile();
-			logQueueManager.queue("Log Version 1.4.5");
-			if (client.getLocalPlayer() != null && client.getLocalPlayer().getName() != null)
+			for (String message : getInitialMessages())
 			{
-				logPlayerName();
-				logQueueManager.queue(String.format("%s\tBASE_STATS\t%s", client.getLocalPlayer().getName(), previousBaseStats));
-				logQueueManager.queue(String.format("%s\tBOOSTED_STATS\t%s", client.getLocalPlayer().getName(), previousBoostedStats));
+				logQueueManager.queue(message);
 			}
 		}
 		catch (IOException e)
 		{
 			e.printStackTrace();
 		}
+	}
+
+	List<String> getInitialMessages()
+	{
+		List<String> messages = new ArrayList<>();
+		messages.add("Log Version 1.4.5");
+
+		Player player = client.getLocalPlayer();
+		if (player == null || player.getName() == null)
+		{
+			return messages;
+		}
+
+		String name = player.getName();
+		messages.add(String.format("Logged in player is %s", name));
+
+		List<Integer> baseStats = previousBaseStats != null ? previousBaseStats : CombatStats.getBaseStats(client);
+		List<Integer> boostedStats = previousBoostedStats != null ? previousBoostedStats : CombatStats.getBoostedStats(client);
+		messages.add(String.format("%s\tBASE_STATS\t%s", name, baseStats));
+		messages.add(String.format("%s\tBOOSTED_STATS\t%s", name, boostedStats));
+
+		List<Integer> equipment = getCurrentEquipmentItemIds();
+		if (equipment != null)
+		{
+			messages.add(String.format("%s\tEQUIPMENT\t%s", name, equipment));
+		}
+
+		messages.add(String.format("%s\tPRAYERS\t%s", name, getCurrentActivePrayers()));
+		return messages;
+	}
+
+	private List<Integer> getCurrentEquipmentItemIds()
+	{
+		ItemContainer equipContainer = client.getItemContainer(InventoryID.WORN);
+		if (equipContainer == null)
+		{
+			return null;
+		}
+
+		List<Integer> currentItemIds = Arrays.stream(equipContainer.getItems())
+				.map(Item::getId)
+				.collect(Collectors.toList());
+		currentItemIds.add(client.getVarpValue(VarPlayerID.DIZANAS_QUIVER_TEMP_AMMO));
+		return currentItemIds;
+	}
+
+	private List<Integer> getCurrentActivePrayers()
+	{
+		List<Integer> currentPrayers = new ArrayList<>();
+		for (Prayer prayer : Prayer.values())
+		{
+			if (client.isPrayerActive(prayer))
+			{
+				currentPrayers.add(prayer.getVarbit());
+			}
+		}
+		return currentPrayers;
 	}
 
 	private void logPlayerName()

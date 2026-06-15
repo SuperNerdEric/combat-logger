@@ -3,6 +3,7 @@ package com.combatlogger.panel;
 import com.combatlogger.CombatLoggerConfig;
 import com.combatlogger.CombatLoggerPlugin;
 import com.combatlogger.FightManager;
+import com.combatlogger.LiveLogClient;
 import com.combatlogger.model.Fight;
 import com.combatlogger.model.PlayerStats;
 import com.combatlogger.util.BoundedQueue;
@@ -10,12 +11,14 @@ import net.runelite.client.util.ImageUtil;
 import net.runelite.client.util.LinkBrowser;
 import net.runelite.client.util.SwingUtil;
 import lombok.Getter;
+import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.PluginPanel;
 
 import javax.inject.Inject;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,6 +27,7 @@ import static com.combatlogger.CombatLoggerPlugin.DIRECTORY;
 public class CombatLoggerPanel extends PluginPanel
 {
 	private final FightManager fightManager;
+	private final LiveLogClient liveLogClient;
 	private final CardLayout cardLayout;
 	private final JLabel currentFightLengthLabel = new JLabel("00:00");
 	private final JPanel damageMeterPanel;
@@ -31,6 +35,11 @@ public class CombatLoggerPanel extends PluginPanel
 	private final DamageDrillDownPanel drillDownPanel;
 
 	private final JComboBox<Fight> fightsComboBox = new JComboBox<>();
+	private final JButton liveLogEnableButton = new JButton("Enable Live Logging");
+	private final JButton liveLogViewButton = new JButton("View on Runelogs");
+	private final JButton liveLogStopButton = new JButton("Stop");
+	private final JPanel liveLogDisabledPanel = new JPanel();
+	private final JPanel liveLogActivePanel = new JPanel();
 
 	@Getter
 	private Fight selectedFight = null;
@@ -40,6 +49,7 @@ public class CombatLoggerPanel extends PluginPanel
 	private static final ImageIcon FOLDER_ICON;
 	private static final ImageIcon STOP_ICON;
 	private static final ImageIcon CLOSE_ICON;
+	private static final ImageIcon EXTERNAL_LINK_ICON;
 
 	static
 	{
@@ -48,12 +58,16 @@ public class CombatLoggerPanel extends PluginPanel
 		FOLDER_ICON = new ImageIcon(ImageUtil.loadImageResource(CombatLoggerPlugin.class, "/folder.png"));
 		STOP_ICON = new ImageIcon(ImageUtil.loadImageResource(CombatLoggerPlugin.class, "/stop.png"));
 		CLOSE_ICON = new ImageIcon(ImageUtil.loadImageResource(CombatLoggerPlugin.class, "/close.png"));
+		final BufferedImage externalLinkIcon = ImageUtil.resizeImage(
+				ImageUtil.loadImageResource(CombatLoggerPlugin.class, "/external_link.png"), 16, 16);
+		EXTERNAL_LINK_ICON = new ImageIcon(externalLinkIcon);
 	}
 
 	@Inject
-	public CombatLoggerPanel(CombatLoggerConfig config, FightManager fightManager)
+	public CombatLoggerPanel(CombatLoggerConfig config, FightManager fightManager, LiveLogClient liveLogClient)
 	{
 		this.fightManager = fightManager;
+		this.liveLogClient = liveLogClient;
 
 		final JPanel topPanel = new JPanel();
 		topPanel.setLayout(new BorderLayout());
@@ -81,13 +95,52 @@ public class CombatLoggerPanel extends PluginPanel
 		));
 
 		topPanel.add(iconPanel, BorderLayout.EAST);
-		add(topPanel, BorderLayout.NORTH);
+
+		final JPanel liveLogPanel = new JPanel(new BorderLayout());
+		liveLogPanel.setBorder(new EmptyBorder(0, 0, 15, 0));
+		liveLogPanel.add(new JLabel("Live Logging"), BorderLayout.NORTH);
+
+		liveLogEnableButton.addActionListener(e -> {
+			liveLogClient.setEnabled(true);
+			updateLiveLogControls();
+		});
+		stylePanelButton(liveLogEnableButton);
+		liveLogDisabledPanel.setLayout(new BorderLayout());
+		liveLogDisabledPanel.add(liveLogEnableButton, BorderLayout.CENTER);
+
+		liveLogViewButton.setIcon(EXTERNAL_LINK_ICON);
+		liveLogViewButton.setHorizontalTextPosition(SwingConstants.LEFT);
+		liveLogViewButton.setIconTextGap(6);
+		liveLogViewButton.addActionListener(e -> {
+			String logId = liveLogClient.getCurrentLogId();
+			if (logId != null)
+			{
+				LinkBrowser.browse("https://runelogs.com/log/" + logId);
+			}
+		});
+		stylePanelButton(liveLogViewButton);
+
+		liveLogStopButton.addActionListener(e -> {
+			liveLogClient.setEnabled(false);
+			updateLiveLogControls();
+		});
+		stylePanelButton(liveLogStopButton);
+
+		liveLogActivePanel.setLayout(new BorderLayout(6, 0));
+		liveLogActivePanel.add(liveLogViewButton, BorderLayout.CENTER);
+		liveLogActivePanel.add(liveLogStopButton, BorderLayout.EAST);
+
+		final JPanel liveLogActionsPanel = new JPanel();
+		liveLogActionsPanel.setLayout(new BoxLayout(liveLogActionsPanel, BoxLayout.Y_AXIS));
+		liveLogActionsPanel.setBorder(new EmptyBorder(8, 0, 0, 0));
+		liveLogActionsPanel.add(liveLogDisabledPanel);
+		liveLogActionsPanel.add(liveLogActivePanel);
+		liveLogPanel.add(liveLogActionsPanel, BorderLayout.CENTER);
 
 		final JPanel damageMeterTextPanel = new JPanel(new BorderLayout());
 		damageMeterTextPanel.setBorder(new EmptyBorder(0, 0, 10, 0));
 		damageMeterTextPanel.add(new JLabel("Damage Meter"), BorderLayout.WEST);
 		damageMeterTextPanel.add(currentFightLengthLabel, BorderLayout.EAST);
-		add(damageMeterTextPanel, BorderLayout.NORTH);
 
 		cardLayout = new CardLayout();
 		damageMeterPanel = new JPanel(cardLayout);
@@ -119,7 +172,13 @@ public class CombatLoggerPanel extends PluginPanel
 		buttonPanel.add(clearFightsButton, BorderLayout.EAST);
 		fightsPanel.add(buttonPanel, BorderLayout.EAST);
 
-		add(fightsPanel, BorderLayout.NORTH);
+		final JPanel headerPanel = new JPanel();
+		headerPanel.setLayout(new BoxLayout(headerPanel, BoxLayout.Y_AXIS));
+		headerPanel.add(topPanel);
+		headerPanel.add(liveLogPanel);
+		headerPanel.add(damageMeterTextPanel);
+		headerPanel.add(fightsPanel);
+		add(headerPanel, BorderLayout.NORTH);
 
 		fightsComboBox.setRenderer(new PlaceholderComboBoxRenderer("Start a fight..."));
 		fightsComboBox.addActionListener(e -> {
@@ -139,7 +198,21 @@ public class CombatLoggerPanel extends PluginPanel
 		damageMeterPanel.add(drillDownPanel, "drilldown");
 
 		showOverviewPanel();
-		add(damageMeterPanel);
+		add(damageMeterPanel, BorderLayout.CENTER);
+		updateLiveLogControls();
+	}
+
+	public void updateLiveLogControls()
+	{
+		boolean enabled = liveLogClient.isEnabled();
+		liveLogDisabledPanel.setVisible(!enabled);
+		liveLogActivePanel.setVisible(enabled);
+
+		if (enabled)
+		{
+			String logId = liveLogClient.getCurrentLogId();
+			liveLogViewButton.setEnabled(logId != null && !logId.isEmpty());
+		}
 	}
 
 	public void showOverviewPanel()
@@ -202,6 +275,14 @@ public class CombatLoggerPanel extends PluginPanel
 		return button;
 	}
 
+	private static void stylePanelButton(JButton button)
+	{
+		button.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+		button.setForeground(ColorScheme.TEXT_COLOR);
+		button.setFocusPainted(false);
+		button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+	}
+
 	private boolean isConfirmed(final String message, final String title)
 	{
 		int confirm = JOptionPane.showConfirmDialog(this,
@@ -228,6 +309,7 @@ public class CombatLoggerPanel extends PluginPanel
 		}
 
 		updateFightsComboBox(fightManager.getFights());
+		updateLiveLogControls();
 	}
 }
 
