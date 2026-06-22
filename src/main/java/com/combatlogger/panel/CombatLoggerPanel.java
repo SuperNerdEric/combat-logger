@@ -26,6 +26,7 @@ import static com.combatlogger.CombatLoggerPlugin.DIRECTORY;
 
 public class CombatLoggerPanel extends PluginPanel
 {
+	private final CombatLoggerConfig config;
 	private final FightManager fightManager;
 	private final LiveLogClient liveLogClient;
 	private final CardLayout cardLayout;
@@ -35,7 +36,7 @@ public class CombatLoggerPanel extends PluginPanel
 	private final DamageDrillDownPanel drillDownPanel;
 
 	private final JComboBox<Fight> fightsComboBox = new JComboBox<>();
-	private final JButton liveLogEnableButton = new JButton("Enable Live Logging");
+	private final JButton liveLogEnableButton = new JButton("Start Live Logging");
 	private final JButton liveLogViewButton = new JButton("View on Runelogs");
 	private final JButton liveLogStopButton = new JButton("Stop");
 	private final JPanel liveLogDisabledPanel = new JPanel();
@@ -66,6 +67,7 @@ public class CombatLoggerPanel extends PluginPanel
 	@Inject
 	public CombatLoggerPanel(CombatLoggerConfig config, FightManager fightManager, LiveLogClient liveLogClient)
 	{
+		this.config = config;
 		this.fightManager = fightManager;
 		this.liveLogClient = liveLogClient;
 
@@ -204,9 +206,14 @@ public class CombatLoggerPanel extends PluginPanel
 
 	public void updateLiveLogControls()
 	{
+		boolean liveLoggingAllowed = config.allowLiveLogging();
 		boolean enabled = liveLogClient.isEnabled();
 		liveLogDisabledPanel.setVisible(!enabled);
 		liveLogActivePanel.setVisible(enabled);
+		liveLogEnableButton.setEnabled(liveLoggingAllowed);
+		liveLogEnableButton.setToolTipText(liveLoggingAllowed
+				? null
+				: "Allow live logging in plugin settings first");
 
 		if (enabled)
 		{

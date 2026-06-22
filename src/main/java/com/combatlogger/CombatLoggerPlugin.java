@@ -1278,6 +1278,17 @@ public class CombatLoggerPlugin extends Plugin
 			case "overlayOpacity":
 				damageOverlay.setOpacity(config.overlayOpacity());
 				break;
+
+			case "allowLiveLogging":
+				if (!config.allowLiveLogging() && liveLogClient.isEnabled())
+				{
+					liveLogClient.setEnabled(false);
+				}
+				if (panel != null)
+				{
+					panel.updateLiveLogControls();
+				}
+				break;
 		}
 	}
 

@@ -119,6 +119,14 @@ public class LiveLogClient
 			return;
 		}
 
+		if (!config.allowLiveLogging())
+		{
+			showErrorDialog(
+					"Live logging is not allowed.\n\n"
+							+ "Enable \"Allow Live Logging\" in the Combat Logger plugin settings under Runelogs.");
+			return;
+		}
+
 		if (!hasAccessKey())
 		{
 			showErrorDialog(
@@ -175,7 +183,7 @@ public class LiveLogClient
 			return;
 		}
 
-		if (!hasAccessKey())
+		if (!canUseRunelogsLiveLogging())
 		{
 			return;
 		}
@@ -215,7 +223,7 @@ public class LiveLogClient
 			return;
 		}
 
-		if (!hasAccessKey())
+		if (!canUseRunelogsLiveLogging())
 		{
 			return;
 		}
@@ -276,6 +284,11 @@ public class LiveLogClient
 	{
 		String accessKey = config.runelogsAccessKey();
 		return accessKey != null && !accessKey.trim().isEmpty();
+	}
+
+	private boolean canUseRunelogsLiveLogging()
+	{
+		return config.allowLiveLogging() && hasAccessKey();
 	}
 
 	private void flushAsync()
@@ -348,6 +361,11 @@ public class LiveLogClient
 
 	private void sendCommand(String command, List<String> lines, boolean isStart, int pendingLinesToAck)
 	{
+		if (!config.allowLiveLogging())
+		{
+			return;
+		}
+
 		if (!hasAccessKey())
 		{
 			if (isStart)

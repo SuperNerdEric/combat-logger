@@ -42,11 +42,24 @@ public interface CombatLoggerConfig extends Config
 	String debugSection = "debugSection";
 
 	@ConfigItem(
+			keyName = "allowLiveLogging",
+			name = "Allow Live Logging",
+			description = "Allow the plugin to submit live combat logs to api.runelogs.com",
+			warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by Runelite developers",
+			section = runelogsSection,
+			position = 0
+	)
+	default boolean allowLiveLogging()
+	{
+		return false;
+	}
+
+	@ConfigItem(
 			keyName = "runelogsAccessKey",
 			name = "Runelogs Access Key",
 			description = "Access key from runelogs.com/live-log used for live logging",
 			section = runelogsSection,
-			position = 0,
+			position = 1,
 			secret = true
 	)
 	default String runelogsAccessKey()
