@@ -204,8 +204,8 @@ public class CombatLoggerPlugin extends Plugin
 		clientToolbar.addNavigation(navButton);
 
 		DIRECTORY.mkdirs();
-		sendReminderMessage();
 		createLogFile();
+		sendReminderMessage();
 		liveLogClient.setInitialMessageSupplier(this::getInitialMessages);
 		wsClient.registerMessage(DamageMessage.class);
 		wsClient.registerMessage(BaseCombatStatsMessage.class);
@@ -349,17 +349,28 @@ public class CombatLoggerPlugin extends Plugin
 		panel.updatePanel();
 		liveLogClient.onGameTick();
 
-		if (checkPlayerName && client.getLocalPlayer() != null && client.getLocalPlayer().getName() != null)
-		{
-			logPlayerName();
-			clientThread.invokeLater(this::sendReminderMessage); // Delay so it's at bottom of chat
-			checkPlayerName = false;
-		}
-
 		Player local = client.getLocalPlayer();
 		if (local == null)
 		{
 			return;
+		}
+
+		if (local.getName() != null)
+		{
+			if (LOG_FILE == null)
+			{
+				createLogFile();
+			}
+			else if (checkPlayerName)
+			{
+				logPlayerName();
+			}
+
+			if (checkPlayerName)
+			{
+				clientThread.invokeLater(this::sendReminderMessage); // Delay so it's at bottom of chat
+				checkPlayerName = false;
+			}
 		}
 
 		logPrayers(false);
@@ -1317,11 +1328,31 @@ public class CombatLoggerPlugin extends Plugin
 		}
 	}
 
+	private File getPlayerDirectory()
+	{
+		Player player = client.getLocalPlayer();
+		if (player == null || player.getName() == null)
+		{
+			return null;
+		}
+
+		File playerDirectory = new File(DIRECTORY, player.getName());
+		playerDirectory.mkdirs();
+		return playerDirectory;
+	}
+
 	private void createLogFile()
 	{
 		try
 		{
-			LOG_FILE = new File(DIRECTORY, LOG_FILE_NAME + "-" + System.currentTimeMillis() + ".txt");
+			File logDirectory = getPlayerDirectory();
+			if (logDirectory == null)
+			{
+				return;
+			}
+
+			logQueueManager.clearQueue();
+			LOG_FILE = new File(logDirectory, LOG_FILE_NAME + "-" + System.currentTimeMillis() + ".txt");
 			LOG_FILE.createNewFile();
 			for (String message : getInitialMessages())
 			{

@@ -105,6 +105,12 @@ public class LogQueueManager
 	private void log(int tickCount, String timestamp, String message)
 	{
 		String formattedLine = String.format("%s %s\t%s", tickCount, timestamp, message);
+		if (LOG_FILE == null)
+		{
+			liveLogClient.onLineLogged(formattedLine);
+			return;
+		}
+
 		try (BufferedWriter writer = new BufferedWriter(new FileWriter(LOG_FILE, true)))
 		{
 			writer.write(String.format("%s\n", formattedLine));
@@ -177,6 +183,11 @@ public class LogQueueManager
 							newHitsplatName)
 			);
 		}
+	}
+
+	public void clearQueue()
+	{
+		logQueue.clear();
 	}
 
 	public void queue(Log log)
