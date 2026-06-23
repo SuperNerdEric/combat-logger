@@ -1,5 +1,6 @@
 package com.combatlogger;
 
+import com.combatlogger.encounters.ColosseumHelper;
 import com.combatlogger.messages.BaseCombatStatsMessage;
 import com.combatlogger.messages.BoostedCombatStatsMessage;
 import com.combatlogger.messages.DamageMessage;
@@ -157,6 +158,9 @@ public class CombatLoggerPlugin extends Plugin
 	private FightManager fightManager;
 
 	@Inject
+	private ColosseumHelper colosseumHelper;
+
+	@Inject
 	private ClientToolbar clientToolbar;
 
 	@Inject
@@ -189,6 +193,7 @@ public class CombatLoggerPlugin extends Plugin
 	{
 		panel = injector.getInstance(CombatLoggerPanel.class);
 		logQueueManager.startUp(eventBus);
+		eventBus.register(colosseumHelper);
 
 		navButton = NavigationButton.builder()
 				.tooltip("Combat Logger")
@@ -236,6 +241,7 @@ public class CombatLoggerPlugin extends Plugin
 		panel = null;
 		liveLogClient.shutDown();
 		logQueueManager.shutDown(eventBus);
+		eventBus.unregister(colosseumHelper);
 		fightManager.shutDown();
 		setOverlayVisible(false);
 	}
@@ -725,6 +731,7 @@ public class CombatLoggerPlugin extends Plugin
 			if (currentRegionId != regionId)
 			{
 				regionId = currentRegionId;
+				colosseumHelper.setInColosseum(regionId == 7216);
 				logQueueManager.queue(String.format("Player region %d", regionId));
 			}
 
@@ -1070,6 +1077,7 @@ public class CombatLoggerPlugin extends Plugin
 		String message = event.getMessage();
 		if (ENCOUNTER_PATTERN.matcher(message).find())
 		{
+			colosseumHelper.handleWaveStarted(message);
 			logQueueManager.queue(
 					new GameMessageLog(
 							client.getTickCount(),
@@ -1329,7 +1337,7 @@ public class CombatLoggerPlugin extends Plugin
 	List<String> getInitialMessages()
 	{
 		List<String> messages = new ArrayList<>();
-		messages.add("Log Version 1.5.0");
+		messages.add("Log Version 1.6.0");
 
 		Player player = client.getLocalPlayer();
 		if (player == null || player.getName() == null)

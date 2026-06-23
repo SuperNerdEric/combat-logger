@@ -1,0 +1,17 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="CombatLoggerPluginTest" type="Application" factoryName="Application">
+    <option name="MAIN_CLASS_NAME" value="com.combatlogger.CombatLoggerPluginTest" />
+    <module name="combatlogger.test" />
+    <option name="PROGRAM_PARAMETERS" value="mode=OFF --developer-mode" />
+    <option name="VM_PARAMETERS" value="-ea -Dsun.java2d.d3d=false" />
+    <extension name="coverage">
+      <pattern>
+        <option name="PATTERN" value="com.combatlogger.*" />
+        <option name="ENABLED" value="true" />
+      </pattern>
+    </extension>
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
