@@ -6,6 +6,7 @@ import net.runelite.api.GameState;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.chat.ChatMessageManager;
 import net.runelite.client.chat.QueuedMessage;
+import net.runelite.client.util.LinkBrowser;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -441,6 +442,11 @@ public class LiveLogClient
 		currentLogId = extractJsonStringField(responseBody, "logId");
 		lastHeartbeatTick = client.getTickCount();
 		batchFailureStartTick = -1;
+
+		if (wasStart && config.openLiveLogPageOnStart() && currentLogId != null)
+		{
+			LinkBrowser.browse("https://runelogs.com/log/" + currentLogId);
+		}
 
 		synchronized (pendingLock)
 		{

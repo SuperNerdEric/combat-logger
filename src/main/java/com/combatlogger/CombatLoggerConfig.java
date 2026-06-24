@@ -68,6 +68,18 @@ public interface CombatLoggerConfig extends Config
 	}
 
 	@ConfigItem(
+			keyName = "openLiveLogPageOnStart",
+			name = "Automatically Open Log Page",
+			description = "Automatically open the live log page in your browser when live logging starts",
+			section = runelogsSection,
+			position = 2
+	)
+	default boolean openLiveLogPageOnStart()
+	{
+		return false;
+	}
+
+	@ConfigItem(
 			keyName = "secondaryMetric",
 			name = "Secondary Metric",
 			description = "Which Secondary Metric to display alongside Damage - e.g. Damage (DPS, %)",
