@@ -1,6 +1,8 @@
 package com.combatlogger;
 
 import com.combatlogger.encounters.ColosseumHelper;
+import com.combatlogger.encounters.ToaHelper;
+import com.combatlogger.util.RaidWipeUtil;
 import com.combatlogger.messages.BaseCombatStatsMessage;
 import com.combatlogger.messages.BoostedCombatStatsMessage;
 import com.combatlogger.messages.DamageMessage;
@@ -99,17 +101,6 @@ public class CombatLoggerPlugin extends Plugin
 			VarbitID.TOB_CLIENT_P4
 	);
 
-	private static final List<Integer> TOA_ORBS_VARBITS = Arrays.asList(
-			VarbitID.TOA_CLIENT_P0,
-			VarbitID.TOA_CLIENT_P1,
-			VarbitID.TOA_CLIENT_P2,
-			VarbitID.TOA_CLIENT_P3,
-			VarbitID.TOA_CLIENT_P4,
-			VarbitID.TOA_CLIENT_P5,
-			VarbitID.TOA_CLIENT_P6,
-			VarbitID.TOA_CLIENT_P7
-	);
-
 	static
 	{
 		DIRECTORY = new File(RuneLite.RUNELITE_DIR, DIRECTORY_NAME);
@@ -161,6 +152,9 @@ public class CombatLoggerPlugin extends Plugin
 	private ColosseumHelper colosseumHelper;
 
 	@Inject
+	private ToaHelper toaHelper;
+
+	@Inject
 	private ClientToolbar clientToolbar;
 
 	@Inject
@@ -194,6 +188,7 @@ public class CombatLoggerPlugin extends Plugin
 		panel = injector.getInstance(CombatLoggerPanel.class);
 		logQueueManager.startUp(eventBus);
 		eventBus.register(colosseumHelper);
+		eventBus.register(toaHelper);
 
 		navButton = NavigationButton.builder()
 				.tooltip("Combat Logger")
@@ -242,6 +237,7 @@ public class CombatLoggerPlugin extends Plugin
 		liveLogClient.shutDown();
 		logQueueManager.shutDown(eventBus);
 		eventBus.unregister(colosseumHelper);
+		eventBus.unregister(toaHelper);
 		fightManager.shutDown();
 		setOverlayVisible(false);
 	}
@@ -744,6 +740,7 @@ public class CombatLoggerPlugin extends Plugin
 				regionId = currentRegionId;
 				colosseumHelper.setInColosseum(regionId == 7216);
 				logQueueManager.queue(String.format("Player region %d", regionId));
+				toaHelper.onRegionChanged(regionId);
 			}
 
 		}
@@ -1055,25 +1052,10 @@ public class CombatLoggerPlugin extends Plugin
 			return;
 		}
 
-		if (TOB_ORBS_VARBITS.contains(varbitChanged.getVarbitId()) && isWipe(TOB_ORBS_VARBITS))
+		if (TOB_ORBS_VARBITS.contains(varbitChanged.getVarbitId()) && RaidWipeUtil.isWipe(client, TOB_ORBS_VARBITS))
 		{
 			logQueueManager.queue("Theatre of Blood Wipe");
 		}
-		else if (TOA_ORBS_VARBITS.contains(varbitChanged.getVarbitId()) && isWipe(TOA_ORBS_VARBITS))
-		{
-			logQueueManager.queue("Tombs of Amascut Wipe");
-		}
-	}
-
-	private boolean isWipe(List<Integer> orbVarbits)
-	{
-		return orbVarbits.stream()
-				.allMatch(varbit -> {
-					int value = client.getVarbitValue(varbit);
-					// 0 = hidden
-					// 30 = dead
-					return value == 0 || value == 30;
-				});
 	}
 
 	@Subscribe
