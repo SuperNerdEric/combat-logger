@@ -691,6 +691,7 @@ public class NpcIdsToTrack
 			// Doom of Mokhaiotl
 			NpcID.DOM_BOSS,
 			NpcID.DOM_BOSS_SHIELDED ,
+			NpcID.DOM_BOSS_BURROWED,
 			NpcID.DOM_DEMONIC_ENERGY,
 			NpcID.DOM_DEMONIC_ENERGY_RANGE,
 			NpcID.DOM_DEMONIC_ENERGY_MAGE,
