@@ -279,7 +279,8 @@ public class BossIds
 			COLOSSEUM_BOSS_SEATED,
 			SLAYER_KRAKEN_BOSS,
 			SLAYER_KRAKEN_BOSS_WHIRLPOOL,
-			DOM_BOSS // Doom of Mokhaiotl
+			DOM_BOSS, // Doom of Mokhaiotl
+			YAMA
 	));
 	public static final Map<String, List<String>> BOSS_TO_MINIONS;
 	public static final Map<String, String> MINION_TO_BOSS;

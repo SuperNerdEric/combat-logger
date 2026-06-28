@@ -20,7 +20,6 @@ import com.combatlogger.util.BoundedQueue;
 import com.combatlogger.util.CombatStats;
 import com.google.inject.Provides;
 import lombok.Getter;
-import net.runelite.api.Deque;
 import net.runelite.api.Menu;
 import net.runelite.api.Point;
 import net.runelite.api.*;
@@ -424,7 +423,7 @@ public class CombatLoggerPlugin extends Plugin
 	{
 		int animationId = player.getAnimation();
 
-		if ((animationId == 5061 || animationId == 10656) && player.getAnimationFrame() == 0 && player.getInteracting() != null)
+		if (AnimationIds.BLOWPIPE_IDS.contains(animationId) && player.getAnimationFrame() == 0 && player.getInteracting() != null)
 		{
 			// Blowpipes will restart their attack animation (at frame 0) without sending an AnimationChanged event
 			// So we just check every player if they have the blowpipe animation at frame 0
@@ -537,6 +536,12 @@ public class CombatLoggerPlugin extends Plugin
 	}
 
 	@Subscribe
+	public void onClientTick(ClientTick event)
+	{
+		pollTrackedGraphicObjects();
+	}
+
+	@Subscribe
 	protected void onGraphicsObjectCreated(GraphicsObjectCreated event)
 	{
 		GraphicsObject graphicsObject = event.getGraphicsObject();
@@ -549,48 +554,118 @@ public class CombatLoggerPlugin extends Plugin
 
 		String key = graphicsObject.getId() + "-" + currentWorldPoint.getX() + "-" + currentWorldPoint.getY() + "-" + currentWorldPoint.getPlane();
 
-		if (trackedGraphicObjects.get(key) != null)
+		if (trackedGraphicObjects.containsKey(key))
 		{
 			// Sometimes the same graphics object is recreated before it's gone (I think to loop the animation?)
-			// We don't need to log it again
 			return;
 		}
 
 		TrackedGraphicObject trackedGraphicObject = new TrackedGraphicObject();
 		trackedGraphicObject.setId(graphicsObject.getId());
 		trackedGraphicObject.setWorldPoint(currentWorldPoint);
+		trackedGraphicObject.setGraphicsObject(graphicsObject);
+		// GraphicsObjectCreated fires when the object is registered, not when it becomes visible.
+		// startCycle is when the spotanim actually starts and may be in the future.
+		// e.g. Yama shadow waves spawn on every tile in the whole room at once, but stagger out animations into a wave pattern.
+		trackedGraphicObject.setStartCycle(graphicsObject.getStartCycle());
 		trackedGraphicObjects.put(key, trackedGraphicObject);
-		logQueueManager.queue(String.format("%d\tGRAPHICS_OBJECT_SPAWNED\t(%d, %d, %d)", graphicsObject.getId(), currentWorldPoint.getX(), currentWorldPoint.getY(), currentWorldPoint.getPlane()));
+	}
+
+	private void pollTrackedGraphicObjects()
+	{
+		if (trackedGraphicObjects.isEmpty())
+		{
+			return;
+		}
+
+		final int gameCycle = client.getGameCycle();
+		Iterator<Map.Entry<String, TrackedGraphicObject>> iterator = trackedGraphicObjects.entrySet().iterator();
+
+		while (iterator.hasNext())
+		{
+			TrackedGraphicObject tracked = iterator.next().getValue();
+			GraphicsObject graphicsObject = tracked.getGraphicsObject();
+			if (graphicsObject == null)
+			{
+				iterator.remove();
+				continue;
+			}
+
+			if (!tracked.isSpawned())
+			{
+				if (gameCycle >= tracked.getStartCycle())
+				{
+					logGraphicsObjectSpawned(tracked);
+					tracked.setSpawned(true);
+				}
+				continue;
+			}
+
+			if (graphicsObject.finished())
+			{
+				logGraphicsObjectDespawned(tracked, gameCycle);
+				iterator.remove();
+			}
+		}
+	}
+
+	private void logGraphicsObjectSpawned(TrackedGraphicObject tracked)
+	{
+		WorldPoint position = tracked.getWorldPoint();
+		logQueueManager.queue(String.format(
+				"%d\tGRAPHICS_OBJECT_SPAWNED\t(%d, %d, %d)\t%d",
+				tracked.getId(),
+				position.getX(),
+				position.getY(),
+				position.getPlane(),
+				tracked.getStartCycle()
+		));
+	}
+
+	private void logGraphicsObjectDespawned(TrackedGraphicObject tracked, int endCycle)
+	{
+		WorldPoint position = tracked.getWorldPoint();
+		logQueueManager.queue(String.format(
+				"%d\tGRAPHICS_OBJECT_DESPAWNED\t(%d, %d, %d)\t%d",
+				tracked.getId(),
+				position.getX(),
+				position.getY(),
+				position.getPlane(),
+				endCycle
+		));
 	}
 
 	private void checkGraphicsObjectDespawns()
 	{
-		Deque<GraphicsObject> graphicsObjects = client.getGraphicsObjects();
-		Set<String> activeKeys = new HashSet<>();
-		for (GraphicsObject graphicsObject : graphicsObjects)
+		if (trackedGraphicObjects.isEmpty())
 		{
-			if (GRAPHICS_OBJECT_IDS_TO_TRACK.contains(graphicsObject.getId()))
-			{
-				WorldPoint currentWorldPoint = WorldPoint.fromLocalInstance(client, graphicsObject.getLocation());
-				activeKeys.add(graphicsObject.getId() + "-" + currentWorldPoint.getX() + "-" + currentWorldPoint.getY() + "-" + currentWorldPoint.getPlane());
-			}
+			return;
 		}
 
-		trackedGraphicObjects.entrySet().removeIf(trackedGraphicObjectEntry -> {
-					if (!activeKeys.contains(trackedGraphicObjectEntry.getKey()))
-					{
-						logQueueManager.queue(String.format(
-								"%d\tGRAPHICS_OBJECT_DESPAWNED\t(%d, %d, %d)",
-								trackedGraphicObjectEntry.getValue().getId(),
-								trackedGraphicObjectEntry.getValue().getWorldPoint().getX(),
-								trackedGraphicObjectEntry.getValue().getWorldPoint().getY(),
-								trackedGraphicObjectEntry.getValue().getWorldPoint().getPlane()
-						));
-						return true;
-					}
-					return false;
-				}
-		);
+		Set<String> activeKeys = new HashSet<>();
+		for (GraphicsObject graphicsObject : client.getGraphicsObjects())
+		{
+			if (!GRAPHICS_OBJECT_IDS_TO_TRACK.contains(graphicsObject.getId()))
+			{
+				continue;
+			}
+			WorldPoint currentWorldPoint = WorldPoint.fromLocalInstance(client, graphicsObject.getLocation());
+			activeKeys.add(graphicsObject.getId() + "-" + currentWorldPoint.getX() + "-" + currentWorldPoint.getY() + "-" + currentWorldPoint.getPlane());
+		}
+
+		trackedGraphicObjects.entrySet().removeIf(entry -> {
+			String key = entry.getKey();
+			TrackedGraphicObject tracked = entry.getValue();
+			if (activeKeys.contains(key))
+			{
+				return false;
+			}
+			if (tracked.isSpawned())
+			{
+				logGraphicsObjectDespawned(tracked, client.getGameCycle());
+			}
+			return true;
+		});
 	}
 
 	@Subscribe
@@ -709,7 +784,7 @@ public class CombatLoggerPlugin extends Plugin
 			return;
 		}
 
-		if (animationId == 5061 || animationId == 10656)
+		if (AnimationIds.BLOWPIPE_IDS.contains(animationId))
 		{
 			// Blowpipe animations are handled in checkBlowpipe
 			return;
@@ -1350,7 +1425,7 @@ public class CombatLoggerPlugin extends Plugin
 	List<String> getInitialMessages()
 	{
 		List<String> messages = new ArrayList<>();
-		messages.add("Log Version 1.6.1");
+		messages.add("Log Version 1.6.2");
 
 		Player player = client.getLocalPlayer();
 		if (player == null || player.getName() == null)

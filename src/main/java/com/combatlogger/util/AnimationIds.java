@@ -8,6 +8,15 @@ import java.util.List;
 
 public class AnimationIds
 {
+	public static final List<Integer> BLOWPIPE_IDS = Arrays.asList(
+			AnimationID.SNAKEBOSS_BLOWPIPE_ATTACK, // Toxic blowpipe
+			AnimationID.SNAKEBOSS_BLOWPIPE_ATTACK_ORNAMENT, // Blazing blowpipe
+			AnimationID.CAMPHOR_BLOWPIPE_ATTACK, // Camphor blowpipe
+			AnimationID.IRONWOOD_BLOWPIPE_ATTACK, // Ironwood blowpipe
+			AnimationID.ROSEWOOD_BLOWPIPE_ATTACK, // Rosewood blowpipe
+			AnimationID.ROSEWOOD_BLOWPIPE_SPECIAL_ATTACK // Rosewood blowpipe spec
+	);
+
 	public static final List<Integer> MELEE_IDS = Arrays.asList(
 			AnimationID.HUMAN_SWORD_SLASH, // Slash, Swift blade, Osmumten's fang
 			AnimationID.HUMAN_OSMUMTENS_FANG, // Osmumten's fang stab
@@ -112,8 +121,12 @@ public class AnimationIds
 			AnimationID.HUMAN_DRAGON_KNIFE, // Dragon knife
 			AnimationID.HUMAN_DRAGON_KNIFE_P, // Dragon knife poisoned
 			AnimationID.HUMAN_DRAGON_TKNIVES_SPEC, // Dragon knife spec
-			AnimationID.SNAKEBOSS_BLOWPIPE_ATTACK, // Blowpipe
-			AnimationID.SNAKEBOSS_BLOWPIPE_ATTACK_ORNAMENT, // Blazing Blowpipe
+			AnimationID.SNAKEBOSS_BLOWPIPE_ATTACK, // Toxic blowpipe
+			AnimationID.SNAKEBOSS_BLOWPIPE_ATTACK_ORNAMENT, // Blazing blowpipe
+			AnimationID.CAMPHOR_BLOWPIPE_ATTACK, // Camphor blowpipe
+			AnimationID.IRONWOOD_BLOWPIPE_ATTACK, // Ironwood blowpipe
+			AnimationID.ROSEWOOD_BLOWPIPE_ATTACK, // Rosewood blowpipe
+			AnimationID.ROSEWOOD_BLOWPIPE_SPECIAL_ATTACK, // Rosewood blowpipe spec
 			AnimationID.II_HUMAN_DART_THROW_PVN, // Dart throw
 			AnimationID.HUMAN_CHINCHOMPA_ATTACK_PVN, // Chinchompa
 			AnimationID.BARROWS_REPEATING_CROSSBOW_FIRE, // Karil's crossbow
@@ -171,8 +184,12 @@ public class AnimationIds
 			case AnimationID.HUMAN_DRAGON_KNIFE: // Dragon knife
 			case AnimationID.HUMAN_DRAGON_KNIFE_P: // Dragon knife poisoned
 			case AnimationID.HUMAN_DRAGON_TKNIVES_SPEC: // Dragon knife spec
-			case AnimationID.SNAKEBOSS_BLOWPIPE_ATTACK: // Blowpipe
-			case AnimationID.SNAKEBOSS_BLOWPIPE_ATTACK_ORNAMENT: // Blazing Blowpipe
+			case AnimationID.SNAKEBOSS_BLOWPIPE_ATTACK: // Toxic blowpipe
+			case AnimationID.SNAKEBOSS_BLOWPIPE_ATTACK_ORNAMENT: // Blazing blowpipe
+			case AnimationID.CAMPHOR_BLOWPIPE_ATTACK: // Camphor blowpipe
+			case AnimationID.IRONWOOD_BLOWPIPE_ATTACK: // Ironwood blowpipe
+			case AnimationID.ROSEWOOD_BLOWPIPE_ATTACK: // Rosewood blowpipe
+			case AnimationID.ROSEWOOD_BLOWPIPE_SPECIAL_ATTACK: // Rosewood blowpipe spec
 			case AnimationID.II_HUMAN_DART_THROW_PVN: // Dart throw
 				ticks = 2;
 				break;

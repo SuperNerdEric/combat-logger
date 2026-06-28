@@ -22,6 +22,17 @@ public class GameObjectIdsToTrack
 			ObjectID.DOM_ACIDPOOL, // Doom of Mokhaiotl acid blood (venom splat)
 			ObjectID.DOM_ACIDPOOL_DIAGONAL, // Doom of Mokhaiotl acid blood diagonal (venom splat)
 			ObjectID.DOM_ROCK, // Doom of Mokhaiotl rock
-			ObjectID.DOM_ROCK_BLOCKRANGE // Doom of Mokhaiotl rock (blocks range)
+			ObjectID.DOM_ROCK_BLOCKRANGE, // Doom of Mokhaiotl rock (blocks range)
+
+			// Yama glyphs (FLOORKIT_SUMMONING03)
+			ObjectID.FLOORKIT_SUMMONING03_FULL01,
+			ObjectID.FLOORKIT_SUMMONING03_FULL02,
+			ObjectID.FLOORKIT_SUMMONING03_INACTIVE,
+			ObjectID.FLOORKIT_SUMMONING03_FULL01_DEACTIVATE,
+			ObjectID.FLOORKIT_SUMMONING03_FULL02_DEACTIVATE,
+
+			// Yama mechanics
+			ObjectID.COF_FIREWALL,
+			ObjectID.COF_FIREWALL_ACTIVE
 	));
 }

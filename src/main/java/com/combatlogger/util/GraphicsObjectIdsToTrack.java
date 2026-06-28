@@ -94,7 +94,17 @@ public class GraphicsObjectIdsToTrack
 
 			SpotanimID.VFX_DEMONIC_GRUB_ABSORPTION_SPLAT01, // Doom of Mokhaiotl grub absorption splat
 
-			SpotanimID.VFX_DEMONIC_GRUB_ABSORPTION_SPLAT_DIAGONAL01 // Doom of Mokhaiotl grub absorption splat
+			SpotanimID.VFX_DEMONIC_GRUB_ABSORPTION_SPLAT_DIAGONAL01, // Doom of Mokhaiotl grub absorption splat
+
+			// Yama
+			SpotanimID.VFX_SHADOW_WALL_SMALL,
+			SpotanimID.VFX_SHADOW_WALL_01,
+			SpotanimID.VFX_SHADOW_WALL_02,
+			SpotanimID.VFX_SHADOW_WALL_03,
+			SpotanimID.VFX_FIRE_WALL_01,
+			SpotanimID.VFX_FIRE_WALL_02,
+			SpotanimID.VFX_FIRE_WALL_03,
+			SpotanimID.VFX_YAMA_FIRE_IMMUNITY
 
 	));
 
