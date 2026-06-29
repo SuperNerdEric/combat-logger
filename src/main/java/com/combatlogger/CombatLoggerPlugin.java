@@ -378,7 +378,7 @@ public class CombatLoggerPlugin extends Plugin
 
 		List<Player> players = client.getPlayers();
 		players.forEach(player -> {
-			this.checkBlowpipe(player);
+			this.checkPolledAttackAnimations(player);
 			this.logPosition(player);
 			this.logMemberEquipment(player);
 			this.logMemberOverhead(player);
@@ -425,14 +425,14 @@ public class CombatLoggerPlugin extends Plugin
 		}
 	}
 
-	private void checkBlowpipe(Player player)
+	private void checkPolledAttackAnimations(Player player)
 	{
 		int animationId = player.getAnimation();
 
-		if (AnimationIds.BLOWPIPE_IDS.contains(animationId) && player.getAnimationFrame() == 0 && player.getInteracting() != null)
+		if (AnimationIds.isPolledAttackAnimation(animationId) && player.getAnimationFrame() == 0 && player.getInteracting() != null)
 		{
-			// Blowpipes will restart their attack animation (at frame 0) without sending an AnimationChanged event
-			// So we just check every player if they have the blowpipe animation at frame 0
+			// Blowpipes and Eye of Ayak restart their attack animation (at frame 0) without sending an
+			// AnimationChanged event, so we poll every game tick for these weapons at animation frame 0.
 			logAttackAnimation(animationId, player);
 		}
 	}
@@ -790,9 +790,9 @@ public class CombatLoggerPlugin extends Plugin
 			return;
 		}
 
-		if (AnimationIds.BLOWPIPE_IDS.contains(animationId))
+		if (AnimationIds.isPolledAttackAnimation(animationId))
 		{
-			// Blowpipe animations are handled in checkBlowpipe
+			// Polled attack animations are handled in checkPolledAttackAnimations
 			return;
 		}
 

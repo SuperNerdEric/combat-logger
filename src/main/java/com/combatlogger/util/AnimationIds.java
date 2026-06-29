@@ -8,13 +8,19 @@ import java.util.List;
 
 public class AnimationIds
 {
-	public static final List<Integer> BLOWPIPE_IDS = Arrays.asList(
+	/**
+	 * Attack animations that restart at frame 0 without firing AnimationChanged each time.
+	 * Polled every game tick in {@code CombatLoggerPlugin#checkPolledAttackAnimations}.
+	 */
+	public static final List<Integer> POLLED_ATTACK_ANIMATION_IDS = Arrays.asList(
 			AnimationID.SNAKEBOSS_BLOWPIPE_ATTACK, // Toxic blowpipe
 			AnimationID.SNAKEBOSS_BLOWPIPE_ATTACK_ORNAMENT, // Blazing blowpipe
 			AnimationID.CAMPHOR_BLOWPIPE_ATTACK, // Camphor blowpipe
 			AnimationID.IRONWOOD_BLOWPIPE_ATTACK, // Ironwood blowpipe
 			AnimationID.ROSEWOOD_BLOWPIPE_ATTACK, // Rosewood blowpipe
-			AnimationID.ROSEWOOD_BLOWPIPE_SPECIAL_ATTACK // Rosewood blowpipe spec
+			AnimationID.ROSEWOOD_BLOWPIPE_SPECIAL_ATTACK, // Rosewood blowpipe spec
+			AnimationID.HUMAN_EYE_OF_AYAK_NORMAL, // Eye of Ayak auto
+			AnimationID.HUMAN_EYE_OF_AYAK_SPECIAL // Eye of Ayak spec
 	);
 
 	public static final List<Integer> MELEE_IDS = Arrays.asList(
@@ -32,7 +38,7 @@ public class AnimationIds
 			AnimationID.HUMAN_DHSWORD_CHOP, // 2h crush
 			AnimationID.HUMAN_DHSWORD_SLASH, // 2h slash
 			AnimationID.HUMAN_SPEAR_SPIKE, // Spear stab, Chally, Zamorakian hasta
-			AnimationID.HUMAN_SPEAR_LUNGE, // Spear crush
+			AnimationID.HUMAN_SPEAR_LUNGE, // Spear crush, Leaf-bladed spear crush
 			AnimationID.HUMAN_SCYTHE_SWEEP, // Spear slash, Chally
 			AnimationID.DRAGON_HALBERD_SPECIAL_ATTACK, // Halberd spec
 			AnimationID.DRAGON_WARHAMMER_SA_PLAYER, // Dragon warhammer spec
@@ -47,7 +53,7 @@ public class AnimationIds
 			AnimationID.HUMAN_UNARMEDKICK, // Kick
 			AnimationID.HUMAN_DSPEAR_STAB, // Zamorakian hasta, Keris partisan
 			AnimationID.HUMAN_SWORD_STAB, // Stab
-			AnimationID.HUMAN_STAFF_PUMMEL, // Crozier crush
+			AnimationID.HUMAN_STAFF_PUMMEL, // Crozier crush, Wand melee auto
 			AnimationID.HUMAN_STAFFORB_PUMMEL, // Keris partisan crush, Zamorakian hasta crush
 			AnimationID.TOA_KERIS_PARTISAN_SPECIAL01, // Keris partisan of corruption spec
 			AnimationID.D_CLAWS_PUNCH, // Claw stab
@@ -55,6 +61,7 @@ public class AnimationIds
 			AnimationID.HUMAN_WEAPON_BURNING_CLAWS_02_SPEC, // Burning claws spec
 			AnimationID.SLAYER_ABYSSAL_WHIP_ATTACK, // Whip
 			AnimationID.DARK_SPEC_PLAYER, // Arclight spec
+			AnimationID.HUMAN_WEAPON_EMBERLIGHT_01_SPEC, // Emberlight spec
 			AnimationID.ABYSSAL_DAGGER_HACK, // Abyssal dagger slash
 			AnimationID.ABYSSAL_DAGGER_LUNGE, // Abyssal dagger stab
 			AnimationID.ABYSSAL_DAGGER_SPECIAL, // Abyssal dagger spec
@@ -62,13 +69,13 @@ public class AnimationIds
 			AnimationID.ABYSSAL_BLUDGEON_SPECIAL_ATTACK, // Abyssal bludgeon spec
 			AnimationID.HUMAN_DRAGON_SWORD_SPEC, // Dragon sword spec
 			AnimationID.GHRAZI_RAPIER_ATTACK, // Rapier
-			AnimationID.HUMAN_ZAMORAKSPEAR_STAB, // Zamorakian spear
-			AnimationID.HUMAN_ZAMORAKSPEAR_SLASH, // Blue moon spear slash
-			AnimationID.HUMAN_ZAMORAKSPEAR_LUNGE, // Blue moon spear crush
+			AnimationID.HUMAN_ZAMORAKSPEAR_STAB, // Zamorakian spear, Blue moon spear
+			AnimationID.HUMAN_ZAMORAKSPEAR_SLASH, // Zamorakian spear, Blue moon spear
+			AnimationID.HUMAN_ZAMORAKSPEAR_LUNGE, // Zamorakian spear, Blue moon spear
 			AnimationID.BARROW_GUTHAN_CRUSH, // Verac's flail, Bone mace
 			AnimationID.BARROW_DHAROK_SLASH, // Dharok's greataxe slash
 			AnimationID.BARROW_DHAROK_CRUSH, // Dharok's greataxe crush
-			AnimationID.BARROW_TORAG_CRUSH, // Torag's hammer
+			AnimationID.BARROW_TORAG_CRUSH, // Torag's hammer, Sulphur blades, Glacial temotli
 			AnimationID.BARROWS_WAR_SPEAR_STAB, // Guthan's warspear stab
 			AnimationID.BARROWS_WAR_SPEAR_SLASH, // Guthan's warspear slash
 			AnimationID.BARROWS_WAR_SPEAR_CRUSH, // Guthan's warspear crush
@@ -108,9 +115,12 @@ public class AnimationIds
 			AnimationID.STAB_WOLBANEDAGGER, // Wolfbane stab
 			AnimationID.SHATTER, // Dragon mace spec
 			AnimationID.DRAGON_TWO_HANDED_SWORD, // Dragon 2h spec
-			AnimationID.CHAIR_SIT_READY_THRONE_5B, // Dragon longsword spec
+			AnimationID.CLEAVE, // Dragon longsword spec, Wildy sceptre melee auto
 			AnimationID.CHAIR_SIT_READY_THRONE_3B, // Dragon scimitar spec
-			AnimationID.HUMAN_DHSWORD_STAB, // Dragon spear spec
+			AnimationID.SHOVE, // Dragon spear spec
+			AnimationID.TECPATL_STAB, // Earthbound tecpatl
+			AnimationID.FORESTRY_2H_AXE_ATTACK, // Felling axe
+			AnimationID.SLICE_PLAYER_MACE_SPECIAL_ATTACK, // Ancient mace spec
 			AnimationID.PMOON_MACUAHUITL_CRUSH // Dual macuahuitl
 	);
 
@@ -165,8 +175,16 @@ public class AnimationIds
 			AnimationID.TOA_SOT_CAST_B, // Tumeken's shadow
 			AnimationID.POG_WARPED_SCEPTRE_ATTACK, // Warped sceptre
 			AnimationID.HUMAN_SPELLCAST_GRASP, // Arceuus grasp
-			AnimationID.HUMAN_SPELLCAST_DEMONBANE // Arceuus demonbane
+			AnimationID.HUMAN_SPELLCAST_DEMONBANE, // Arceuus demonbane
+			AnimationID.HUMAN_SPECIAL_ACCURSED, // Accursed sceptre spec
+			AnimationID.HUMAN_EYE_OF_AYAK_NORMAL, // Eye of Ayak auto
+			AnimationID.HUMAN_EYE_OF_AYAK_SPECIAL // Eye of Ayak spec
 	);
+
+	public static boolean isPolledAttackAnimation(int animationId)
+	{
+		return POLLED_ATTACK_ANIMATION_IDS.contains(animationId);
+	}
 
 	public static int getTicks(int attackAnimationId, int weaponId)
 	{
@@ -196,14 +214,17 @@ public class AnimationIds
 
 			// 3 Tick Animations (and alternatives)
 			case AnimationID.HUMAN_BOW: // Bow
-				if (weaponId == ItemID.TWISTED_BOW)
+				if (isDarkBow(weaponId))
+				{
+					ticks = 8;
+					break;
+				}
+				else if (weaponId == ItemID.TWISTED_BOW)
 				{
 					ticks = 5;
 					break;
 				}
-				else if (weaponId == ItemID.BOW_OF_FAERDHINEN || weaponId == ItemID.BOW_OF_FAERDHINEN_INFINITE || weaponId == ItemID.BOW_OF_FAERDHINEN_INFINITE_DUMMY || weaponId == ItemID.BOW_OF_FAERDHINEN_INFINITE_ITHELL
-						|| weaponId == ItemID.BOW_OF_FAERDHINEN_INFINITE_IORWERTH || weaponId == ItemID.BOW_OF_FAERDHINEN_INFINITE_TRAHAEARN || weaponId == ItemID.BOW_OF_FAERDHINEN_INFINITE_CADARN
-						|| weaponId == ItemID.BOW_OF_FAERDHINEN_INFINITE_CRWYS || weaponId == ItemID.BOW_OF_FAERDHINEN_INFINITE_MEILYR || weaponId == ItemID.BOW_OF_FAERDHINEN_INFINITE_AMLODD)
+				else if (isBowOfFaerdhinen(weaponId))
 				{
 					ticks = 4;
 					break;
@@ -214,11 +235,12 @@ public class AnimationIds
 			case AnimationID.HUMAN_SPECIAL01_WEBWEAVER: // Webweaver bow spec
 			case AnimationID.HUMAN_ATLATL_ATTACK_RANGED_01: // Eclipse atlatl
 			case AnimationID.HUMAN_SPECIAL_ATLATL_01: // Eclipse atlatl spec
+			case AnimationID.HUMAN_EYE_OF_AYAK_NORMAL: // Eye of Ayak auto
 				ticks = 3;
 				break;
 
 			// 4 Tick Animations (and alternatives)
-			case AnimationID.HUMAN_SPEAR_SPIKE: // Spear stab, Chally,  Zamorakian Hasta
+			case AnimationID.HUMAN_SPEAR_SPIKE: // Spear stab, Chally, Zamorakian Hasta
 			case AnimationID.HUMAN_SCYTHE_SWEEP: // Spear slash, Chally
 				if (weaponId == ItemID.CRYSTAL_HALBERD || weaponId == ItemID.CRYSTAL_HALBERD_2500)
 				{
@@ -231,6 +253,11 @@ public class AnimationIds
 					break;
 				}
 			case AnimationID.HUMAN_SPEAR_LUNGE: // Spear crush
+				if (weaponId == ItemID.SLAYER_LEAFBLADED_SPEAR)
+				{
+					ticks = 5;
+					break;
+				}
 			case AnimationID.HUMAN_DDAGGER_LUNGE: // Dragon dagger stab
 			case AnimationID.HUMAN_DDAGGER_HACK: // Dragon dagger slash
 			case AnimationID.PUNCTURE: // Dragon dagger spec
@@ -257,6 +284,7 @@ public class AnimationIds
 			case AnimationID.HUMAN_WEAPON_BURNING_CLAWS_02_SPEC: // Burning claws spec
 			case AnimationID.SLAYER_ABYSSAL_WHIP_ATTACK: // Whip
 			case AnimationID.DARK_SPEC_PLAYER: // Arclight spec
+			case AnimationID.HUMAN_WEAPON_EMBERLIGHT_01_SPEC: // Emberlight spec
 			case AnimationID.ABYSSAL_DAGGER_HACK: // Abyssal dagger slash
 			case AnimationID.ABYSSAL_DAGGER_LUNGE: // Abyssal dagger stab
 			case AnimationID.ABYSSAL_DAGGER_SPECIAL: // Abyssal dagger spec
@@ -282,18 +310,28 @@ public class AnimationIds
 			case AnimationID.HUMAN_INQUISITORS_MACE_CRUSH: // Inquisitor's mace crush
 			case AnimationID.SARADOMIN_SWORD_SPECIAL_PLAYER: // Saradomin sword spec
 			case AnimationID.BLESSED_SARADOMIN_SWORD_SPECIAL_PLAYER: // Saradomin's blessed sword spec
-			case AnimationID.HUMAN_ZAMORAKSPEAR_STAB: // Zamorakian spear
 			case AnimationID.STAB_WOLBANEDAGGER: // Wolfbane stab
 			case AnimationID.SHATTER: // Dragon mace spec
 			case AnimationID.CHAIR_SIT_READY_THRONE_3B: // Dragon scimitar spec
-			case AnimationID.HUMAN_DHSWORD_STAB: // Dragon spear spec
-			case AnimationID.PMOON_MACUAHUITL_CRUSH: // Dual macuahuitl - this is a weird one because with the Bloodrager set effect it's sometimes 3 tick
+			case AnimationID.TECPATL_STAB: // Earthbound tecpatl
+			case AnimationID.PMOON_MACUAHUITL_CRUSH: // Dual macuahuitl
 			case AnimationID.HUMAN_WEAPON_BOW_VENATOR01_SHOOT: // Venator bow
 			case AnimationID.SNAPSHOT: // Magic shortbow spec
 			case AnimationID.DTTD_PLAYER_FIRE_BONE_CROSSBOW_PVN: // Dorgeshuun crossbow spec
 			case AnimationID.HUMAN_CASTWAVE_STAFF: // Wave with staff, Sanguinesti staff, Tridents
 			case AnimationID.POG_WARPED_SCEPTRE_ATTACK: // Warped sceptre
 			case AnimationID.HUMAN_SPECIAL02_VOIDWAKER: // Voidwaker spec
+			case AnimationID.HUMAN_SPECIAL_ACCURSED: // Accursed sceptre spec
+				ticks = 4;
+				break;
+			case AnimationID.HUMAN_ZAMORAKSPEAR_STAB: // Zamorakian spear, Blue moon spear
+			case AnimationID.HUMAN_ZAMORAKSPEAR_SLASH:
+			case AnimationID.HUMAN_ZAMORAKSPEAR_LUNGE:
+				if (weaponId == ItemID.FROSTMOON_SPEAR)
+				{
+					ticks = 5;
+					break;
+				}
 				ticks = 4;
 				break;
 
@@ -304,6 +342,9 @@ public class AnimationIds
 					ticks = 4;
 					break;
 				}
+			case AnimationID.HUMAN_STAFF_PUMMEL: // Crozier crush, Wand melee auto
+				ticks = 4;
+				break;
 			case AnimationID.HUMAN_AXE_HACK: // Axe
 			case AnimationID.HUMAN_BLUNT_SPIKE: // Pickaxe smash, Inquisitor's mace stab
 				if (weaponId == ItemID.INQUISITORS_MACE)
@@ -311,10 +352,12 @@ public class AnimationIds
 					ticks = 4;
 					break;
 				}
-			case AnimationID.HUMAN_STAFF_PUMMEL: // Crozier crush
-			case AnimationID.HUMAN_ZAMORAKSPEAR_SLASH: // Blue moon spear slash
-			case AnimationID.HUMAN_ZAMORAKSPEAR_LUNGE: // Blue moon spear crush
 			case AnimationID.BARROW_TORAG_CRUSH: // Torag's hammer
+				if (weaponId == ItemID.SULPHUR_BLADES || weaponId == ItemID.GLACIAL_TEMOTLI)
+				{
+					ticks = 4;
+					break;
+				}
 			case AnimationID.BARROWS_WAR_SPEAR_STAB: // Guthan's warspear stab
 			case AnimationID.BARROWS_WAR_SPEAR_SLASH: // Guthan's warspear slash
 			case AnimationID.BARROWS_WAR_SPEAR_CRUSH: // Guthan's warspear crush
@@ -332,11 +375,18 @@ public class AnimationIds
 					ticks = 7;
 					break;
 				}
-			case AnimationID.CLEAVE: // Dragon longsword spec
+			case AnimationID.CLEAVE: // Dragon longsword spec, Wildy sceptre melee auto
+			case AnimationID.SHOVE: // Dragon spear spec
+			case AnimationID.SLICE_PLAYER_MACE_SPECIAL_ATTACK: // Ancient mace spec
 			case AnimationID.XBOWS_HUMAN_FIRE_AND_RELOAD_PVN: // Crossbow
 				if (weaponId == ItemID.DTTD_BONE_CROSSBOW)
 				{
 					ticks = 4;
+					break;
+				}
+				else if (weaponId == ItemID.HUNTING_CROSSBOW || weaponId == ItemID.HUNTING_CROSSBOW_SUNLIGHT)
+				{
+					ticks = 3;
 					break;
 				}
 			case AnimationID.HUMAN_XBOWS_LEAGUE03_ATTACK_PVN: // Rune crossbow (or)
@@ -368,6 +418,7 @@ public class AnimationIds
 			case AnimationID.TOA_SOT_CAST_B: // Tumeken's shadow
 			case AnimationID.HUMAN_SPELLCAST_GRASP: // Arceuus grasp
 			case AnimationID.HUMAN_SPELLCAST_DEMONBANE: // Arceuus demonbane
+			case AnimationID.HUMAN_EYE_OF_AYAK_SPECIAL: // Eye of Ayak spec
 				ticks = 5;
 				break;
 
@@ -431,7 +482,9 @@ public class AnimationIds
 			case AnimationID.BARROW_DHAROK_SLASH: // Dharok's greataxe slash
 			case AnimationID.BARROW_DHAROK_CRUSH: // Dharok's greataxe crush
 			case AnimationID.SLAYER_GRANITE_MAUL_DEFEND: // Granite maul block
+			case AnimationID.SLAYER_GRANITE_MAUL_SPECIAL_ATTACK: // Granite maul spec
 			case AnimationID.DRAGON_TWO_HANDED_SWORD: // Dragon 2h spec
+			case AnimationID.FORESTRY_2H_AXE_ATTACK: // Felling axe
 				ticks = 7;
 				break;
 
@@ -441,5 +494,20 @@ public class AnimationIds
 				break;
 		}
 		return ticks;
+	}
+
+	private static boolean isDarkBow(int weaponId)
+	{
+		return weaponId == ItemID.DARKBOW || weaponId == ItemID.BH_DARKBOW_IMBUE
+				|| weaponId == ItemID.DARKBOW_GREEN || weaponId == ItemID.DARKBOW_BLUE
+				|| weaponId == ItemID.DARKBOW_YELLOW || weaponId == ItemID.DARKBOW_WHITE;
+	}
+
+	private static boolean isBowOfFaerdhinen(int weaponId)
+	{
+		return weaponId == ItemID.BOW_OF_FAERDHINEN || weaponId == ItemID.BOW_OF_FAERDHINEN_INFINITE || weaponId == ItemID.BOW_OF_FAERDHINEN_INFINITE_DUMMY || weaponId == ItemID.BOW_OF_FAERDHINEN_INFINITE_ITHELL
+				|| weaponId == ItemID.BOW_OF_FAERDHINEN_INFINITE_IORWERTH || weaponId == ItemID.BOW_OF_FAERDHINEN_INFINITE_TRAHAEARN || weaponId == ItemID.BOW_OF_FAERDHINEN_INFINITE_CADARN
+				|| weaponId == ItemID.BOW_OF_FAERDHINEN_INFINITE_CRWYS || weaponId == ItemID.BOW_OF_FAERDHINEN_INFINITE_MEILYR || weaponId == ItemID.BOW_OF_FAERDHINEN_INFINITE_AMLODD
+				|| weaponId == ItemID.BOW_OF_FAERDHINEN_INFINITE_DEADMAN;
 	}
 }
