@@ -1,6 +1,7 @@
 package com.combatlogger;
 
 import com.combatlogger.encounters.ColosseumHelper;
+import com.combatlogger.encounters.CoxHelper;
 import com.combatlogger.encounters.ToaHelper;
 import com.combatlogger.util.RaidWipeUtil;
 import com.combatlogger.messages.BaseCombatStatsMessage;
@@ -154,6 +155,9 @@ public class CombatLoggerPlugin extends Plugin
 	private ToaHelper toaHelper;
 
 	@Inject
+	private CoxHelper coxHelper;
+
+	@Inject
 	private ClientToolbar clientToolbar;
 
 	@Inject
@@ -188,6 +192,7 @@ public class CombatLoggerPlugin extends Plugin
 		logQueueManager.startUp(eventBus);
 		eventBus.register(colosseumHelper);
 		eventBus.register(toaHelper);
+		eventBus.register(coxHelper);
 
 		navButton = NavigationButton.builder()
 				.tooltip("Combat Logger")
@@ -237,6 +242,7 @@ public class CombatLoggerPlugin extends Plugin
 		logQueueManager.shutDown(eventBus);
 		eventBus.unregister(colosseumHelper);
 		eventBus.unregister(toaHelper);
+		eventBus.unregister(coxHelper);
 		fightManager.shutDown();
 		setOverlayVisible(false);
 	}
@@ -1368,7 +1374,7 @@ public class CombatLoggerPlugin extends Plugin
 		}
 	}
 
-	protected static String getCurrentTimestamp()
+	public static String getCurrentTimestamp()
 	{
 		return DATE_FORMAT.format(new Date());
 	}
@@ -1425,7 +1431,7 @@ public class CombatLoggerPlugin extends Plugin
 	List<String> getInitialMessages()
 	{
 		List<String> messages = new ArrayList<>();
-		messages.add("Log Version 1.6.2");
+		messages.add("Log Version 1.6.3");
 
 		Player player = client.getLocalPlayer();
 		if (player == null || player.getName() == null)
