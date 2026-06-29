@@ -82,9 +82,9 @@ public class LiveLogClient
 
 	public void shutDown()
 	{
-		if (enabled)
+		if (enabled && currentLogId != null)
 		{
-			sendCommandAsync("stop", List.of(), false, 0, true);
+			sendCommandAsync("stop", List.of(), false, 0, true, currentLogId);
 		}
 		disableLiveLogging(null, false, false, false);
 		executor.shutdownNow();
@@ -114,7 +114,10 @@ public class LiveLogClient
 
 		if (!enabled)
 		{
-			sendCommandAsync("stop", List.of(), false, 0, true);
+			if (currentLogId != null)
+			{
+				sendCommandAsync("stop", List.of(), false, 0, true, currentLogId);
+			}
 			disableLiveLogging(null, false, false, false);
 			sendLiveLogChatMessage("Runelogs live logging disabled.");
 			return;
@@ -245,7 +248,7 @@ public class LiveLogClient
 		{
 			// No combat lines to send, but the plugin is still enabled - ping the server
 			// so it does not finalize the session during idle periods.
-			sendCommandAsync("heartbeat", List.of(), false, 0, false);
+			sendCommandAsync("heartbeat", List.of(), false, 0, false, currentLogId);
 			lastHeartbeatTick = tick;
 		}
 	}
@@ -306,6 +309,12 @@ public class LiveLogClient
 			}
 
 			sendStart = needsNewSession;
+			if (!sendStart && currentLogId == null)
+			{
+				needsNewSession = true;
+				sendStart = true;
+			}
+
 			if (!sendStart && pendingLines.isEmpty())
 			{
 				return;
@@ -319,11 +328,11 @@ public class LiveLogClient
 		if (sendStart)
 		{
 			// "start" creates a new live log on the server and prepends initial messages.
-			sendCommandAsync("start", buildSessionStartLines(batch), true, pendingLinesToAck, false);
+			sendCommandAsync("start", buildSessionStartLines(batch), true, pendingLinesToAck, false, null);
 			return;
 		}
 
-		sendCommandAsync("batch", batch, false, pendingLinesToAck, false);
+		sendCommandAsync("batch", batch, false, pendingLinesToAck, false, currentLogId);
 	}
 
 	private List<String> buildSessionStartLines(List<String> batch)
@@ -347,9 +356,10 @@ public class LiveLogClient
 			List<String> lines,
 			boolean isStart,
 			int pendingLinesToAck,
-			boolean blocking)
+			boolean blocking,
+			String sessionLogId)
 	{
-		Runnable task = () -> sendCommand(command, lines, isStart, pendingLinesToAck);
+		Runnable task = () -> sendCommand(command, lines, isStart, pendingLinesToAck, sessionLogId);
 		if (blocking)
 		{
 			task.run();
@@ -360,7 +370,12 @@ public class LiveLogClient
 		}
 	}
 
-	private void sendCommand(String command, List<String> lines, boolean isStart, int pendingLinesToAck)
+	private void sendCommand(
+			String command,
+			List<String> lines,
+			boolean isStart,
+			int pendingLinesToAck,
+			String sessionLogId)
 	{
 		if (!config.allowLiveLogging())
 		{
@@ -389,11 +404,12 @@ public class LiveLogClient
 					.timeout(Duration.ofSeconds(15))
 					.header("Authorization", "Bearer " + config.runelogsAccessKey().trim())
 					.header("Content-Type", "application/json")
-					.POST(HttpRequest.BodyPublishers.ofString(buildRequestBody(command, lines)))
+					.POST(HttpRequest.BodyPublishers.ofString(buildRequestBody(command, lines, sessionLogId)))
 					.build();
 
 			HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-			if (response.statusCode() >= 200 && response.statusCode() < 300)
+			int statusCode = response.statusCode();
+			if (statusCode >= 200 && statusCode < 300)
 			{
 				String body = response.body();
 				clientThread.invokeLater(() -> handleSendSuccess(body, isStart, pendingLinesToAck));
@@ -401,10 +417,23 @@ public class LiveLogClient
 			else if (isStart)
 			{
 				clientThread.invokeLater(() -> handleStartFailure(
-						"Could not connect to Runelogs (HTTP " + response.statusCode() + ").\n\n"
+						"Could not connect to Runelogs (HTTP " + statusCode + ").\n\n"
 								+ "Check your access key and try again."));
 			}
+			else if ("stop".equals(command) && (statusCode == 404 || statusCode == 409))
+			{
+				// Session already ended server-side.
+			}
+			else if (("batch".equals(command) || "heartbeat".equals(command))
+					&& (statusCode == 404 || statusCode == 409))
+			{
+				clientThread.invokeLater(this::handleSessionInactive);
+			}
 			else if ("batch".equals(command))
+			{
+				clientThread.invokeLater(this::handleBatchFailure);
+			}
+			else if ("heartbeat".equals(command))
 			{
 				clientThread.invokeLater(this::handleBatchFailure);
 			}
@@ -462,6 +491,22 @@ public class LiveLogClient
 		}
 	}
 
+	private void handleSessionInactive()
+	{
+		if (!enabled)
+		{
+			clearInFlight();
+			return;
+		}
+
+		synchronized (pendingLock)
+		{
+			currentLogId = null;
+			needsNewSession = true;
+			inFlight = false;
+		}
+	}
+
 	private void handleBatchFailure()
 	{
 		if (!enabled)
@@ -507,6 +552,11 @@ public class LiveLogClient
 	private void disableLiveLogging(String message, boolean showError, boolean notifyInChat, boolean sendStop)
 	{
 		boolean wasEnabled = enabled;
+		if (wasEnabled && sendStop && currentLogId != null)
+		{
+			sendCommandAsync("stop", List.of(), false, 0, false, currentLogId);
+		}
+
 		enabled = false;
 		currentLogId = null;
 		needsNewSession = false;
@@ -517,11 +567,6 @@ public class LiveLogClient
 			pendingLines.clear();
 			pendingLineCount = 0;
 			inFlight = false;
-		}
-
-		if (wasEnabled && sendStop)
-		{
-			sendCommandAsync("stop", List.of(), false, 0, false);
 		}
 
 		if (showError && message != null)
@@ -544,10 +589,15 @@ public class LiveLogClient
 				JOptionPane.ERROR_MESSAGE));
 	}
 
-	private static String buildRequestBody(String command, List<String> lines)
+	private static String buildRequestBody(String command, List<String> lines, String logId)
 	{
 		StringBuilder sb = new StringBuilder();
-		sb.append("{\"command\":\"").append(escapeJson(command)).append("\",\"lines\":[");
+		sb.append("{\"command\":\"").append(escapeJson(command)).append('"');
+		if (logId != null)
+		{
+			sb.append(",\"logId\":\"").append(escapeJson(logId)).append('"');
+		}
+		sb.append(",\"lines\":[");
 		boolean first = true;
 		for (String line : lines)
 		{
