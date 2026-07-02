@@ -280,6 +280,7 @@ public class BossIds
 			SLAYER_KRAKEN_BOSS,
 			SLAYER_KRAKEN_BOSS_WHIRLPOOL,
 			DOM_BOSS, // Doom of Mokhaiotl
+			15742, // MAGGOT_KING
 			YAMA
 	));
 	public static final Map<String, List<String>> BOSS_TO_MINIONS;

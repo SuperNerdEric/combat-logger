@@ -33,6 +33,11 @@ public class GameObjectIdsToTrack
 
 			// Yama mechanics
 			ObjectID.COF_FIREWALL,
-			ObjectID.COF_FIREWALL_ACTIVE
+			ObjectID.COF_FIREWALL_ACTIVE,
+
+			// Maggot King poison splats
+			33423, // Poisonous bile
+			33424, // Sticky bile
+			33425 // Carrion
 	));
 }

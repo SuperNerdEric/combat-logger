@@ -104,7 +104,11 @@ public class GraphicsObjectIdsToTrack
 			SpotanimID.VFX_FIRE_WALL_01,
 			SpotanimID.VFX_FIRE_WALL_02,
 			SpotanimID.VFX_FIRE_WALL_03,
-			SpotanimID.VFX_YAMA_FIRE_IMMUNITY
+			SpotanimID.VFX_YAMA_FIRE_IMMUNITY,
+
+			// Maggot King
+			SpotanimID.ZEBAK_ROAR_WAVE_DUST_SHORT, // reused dust wave
+			3998 // GARGBOSS_DEBRIS_SHADOW_60_DARK (reused shadow warning)
 
 	));
 
