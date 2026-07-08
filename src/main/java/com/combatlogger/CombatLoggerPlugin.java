@@ -1431,7 +1431,7 @@ public class CombatLoggerPlugin extends Plugin
 	List<String> getInitialMessages()
 	{
 		List<String> messages = new ArrayList<>();
-		messages.add("Log Version 1.6.6");
+		messages.add("Log Version 1.6.7");
 
 		Player player = client.getLocalPlayer();
 		if (player == null || player.getName() == null)
