@@ -1442,6 +1442,15 @@ public class CombatLoggerPlugin extends Plugin
 		String name = player.getName();
 		messages.add(String.format("Logged in player is %s", name));
 
+		LocalPoint localPoint = player.getLocalLocation();
+		if (localPoint != null)
+		{
+			regionId = WorldPoint.fromLocalInstance(client, localPoint).getRegionID();
+			colosseumHelper.setInColosseum(regionId == 7216);
+			toaHelper.onRegionChanged(regionId);
+			messages.add(String.format("Player region %d", regionId));
+		}
+
 		List<Integer> baseStats = previousBaseStats != null ? previousBaseStats : CombatStats.getBaseStats(client);
 		List<Integer> boostedStats = previousBoostedStats != null ? previousBoostedStats : CombatStats.getBoostedStats(client);
 		messages.add(String.format("%s\tBASE_STATS\t%s", name, baseStats));
