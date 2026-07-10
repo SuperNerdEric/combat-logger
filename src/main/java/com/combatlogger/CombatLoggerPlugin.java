@@ -19,6 +19,7 @@ import com.combatlogger.panel.CombatLoggerPanel;
 import com.combatlogger.util.AnimationIds;
 import com.combatlogger.util.BoundedQueue;
 import com.combatlogger.util.CombatStats;
+import com.combatlogger.util.SpellIds;
 import com.google.inject.Provides;
 import lombok.Getter;
 import net.runelite.api.Menu;
@@ -27,6 +28,7 @@ import net.runelite.api.*;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.*;
+import net.runelite.api.gameval.AnimationID;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.gameval.SpotanimID;
 import net.runelite.api.gameval.VarPlayerID;
@@ -119,6 +121,7 @@ public class CombatLoggerPlugin extends Plugin
 	private List<Integer> previousPrayers;
 	private List<Integer> previousItemIds;
 	private Set<Integer> playerAnimationChanges = new HashSet<>();
+	private Set<Integer> playerGraphicChanges = new HashSet<>();
 	private int regionId = -1;
 
 	private boolean inFight = false;
@@ -227,6 +230,7 @@ public class CombatLoggerPlugin extends Plugin
 		previousPrayers = null;
 		previousItemIds = null;
 		playerAnimationChanges.clear();
+		playerGraphicChanges.clear();
 		trackedPartyMembers.clear();
 		trackedNpcs.clear();
 		trackedGraphicObjects.clear();
@@ -397,6 +401,19 @@ public class CombatLoggerPlugin extends Plugin
 			}
 		}
 		playerAnimationChanges.clear();
+
+		for (int playerId : playerGraphicChanges)
+		{
+			Player player = players.stream()
+					.filter(p -> p.getId() == playerId)
+					.findFirst()
+					.orElse(null);
+			if (player != null)
+			{
+				checkPlayerSpellGraphics(player);
+			}
+		}
+		playerGraphicChanges.clear();
 
 		checkPlayerRegion();
 		validatePartyMembers();
@@ -790,6 +807,11 @@ public class CombatLoggerPlugin extends Plugin
 			return;
 		}
 
+		if (animationId == AnimationID.QUEST_LUNAR_PUSHING_MAGIC_ANIMATION)
+		{
+			checkVengeanceOtherCast(player);
+		}
+
 		if (AnimationIds.isPolledAttackAnimation(animationId))
 		{
 			// Polled attack animations are handled in checkPolledAttackAnimations
@@ -808,6 +830,49 @@ public class CombatLoggerPlugin extends Plugin
 		{
 			checkSplash(local);
 		}
+	}
+
+	/**
+	 * Vengeance Other cast: lunar "pushing magic" animation (4411) on the caster,
+	 * with the receiver as their interacting target.
+	 * Caller must ensure {@code player.getInteracting()} is non-null.
+	 */
+	private void checkVengeanceOtherCast(Player player)
+	{
+		if (player == null || player.getName() == null)
+		{
+			return;
+		}
+
+		Actor interacting = player.getInteracting();
+		if (!(interacting instanceof Player) || interacting.getName() == null)
+		{
+			return;
+		}
+
+		logQueueManager.queue(String.format(
+				"%s\tVENGEANCE_OTHER\t%s",
+				player.getName(),
+				Text.removeTags(interacting.getName())));
+	}
+
+	private void checkPlayerSpellGraphics(Player player)
+	{
+		String spell = SpellIds.fromGraphics(player);
+		if (spell != null)
+		{
+			logSpell(player, spell);
+		}
+	}
+
+	private void logSpell(Player player, String spell)
+	{
+		if (player == null || player.getName() == null || spell == null)
+		{
+			return;
+		}
+
+		logQueueManager.queue(String.format("%s\tSPELL\t%s", player.getName(), spell));
 	}
 
 	private void checkPlayerRegion()
@@ -908,6 +973,11 @@ public class CombatLoggerPlugin extends Plugin
 	@Subscribe
 	public void onGraphicChanged(GraphicChanged event)
 	{
+		if (event.getActor() instanceof Player)
+		{
+			playerGraphicChanges.add(((Player) event.getActor()).getId());
+		}
+
 		Player local = client.getLocalPlayer();
 
 		if (event.getActor() != local)
@@ -1431,7 +1501,7 @@ public class CombatLoggerPlugin extends Plugin
 	List<String> getInitialMessages()
 	{
 		List<String> messages = new ArrayList<>();
-		messages.add("Log Version 1.6.7");
+		messages.add("Log Version 1.6.8");
 
 		Player player = client.getLocalPlayer();
 		if (player == null || player.getName() == null)
