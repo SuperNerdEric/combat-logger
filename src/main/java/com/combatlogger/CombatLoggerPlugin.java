@@ -2,7 +2,9 @@ package com.combatlogger;
 
 import com.combatlogger.encounters.ColosseumHelper;
 import com.combatlogger.encounters.CoxHelper;
+import com.combatlogger.encounters.DoomHelper;
 import com.combatlogger.encounters.ToaHelper;
+import com.combatlogger.encounters.TobHelper;
 import com.combatlogger.util.RaidWipeUtil;
 import com.combatlogger.messages.BaseCombatStatsMessage;
 import com.combatlogger.messages.BoostedCombatStatsMessage;
@@ -19,6 +21,7 @@ import com.combatlogger.panel.CombatLoggerPanel;
 import com.combatlogger.util.AnimationIds;
 import com.combatlogger.util.BoundedQueue;
 import com.combatlogger.util.CombatStats;
+import com.combatlogger.util.NpcAttackAnimationIds;
 import com.combatlogger.util.SpellIds;
 import com.google.inject.Provides;
 import lombok.Getter;
@@ -121,6 +124,7 @@ public class CombatLoggerPlugin extends Plugin
 	private List<Integer> previousPrayers;
 	private List<Integer> previousItemIds;
 	private Set<Integer> playerAnimationChanges = new HashSet<>();
+	private Set<Integer> npcAnimationChanges = new HashSet<>();
 	private Set<Integer> playerGraphicChanges = new HashSet<>();
 	private int regionId = -1;
 
@@ -161,6 +165,12 @@ public class CombatLoggerPlugin extends Plugin
 	private CoxHelper coxHelper;
 
 	@Inject
+	private TobHelper tobHelper;
+
+	@Inject
+	private DoomHelper doomHelper;
+
+	@Inject
 	private ClientToolbar clientToolbar;
 
 	@Inject
@@ -196,6 +206,8 @@ public class CombatLoggerPlugin extends Plugin
 		eventBus.register(colosseumHelper);
 		eventBus.register(toaHelper);
 		eventBus.register(coxHelper);
+		eventBus.register(tobHelper);
+		eventBus.register(doomHelper);
 
 		navButton = NavigationButton.builder()
 				.tooltip("Combat Logger")
@@ -231,6 +243,7 @@ public class CombatLoggerPlugin extends Plugin
 		previousPrayers = null;
 		previousItemIds = null;
 		playerAnimationChanges.clear();
+		npcAnimationChanges.clear();
 		playerGraphicChanges.clear();
 		trackedPartyMembers.clear();
 		trackedNpcs.clear();
@@ -248,6 +261,10 @@ public class CombatLoggerPlugin extends Plugin
 		eventBus.unregister(colosseumHelper);
 		eventBus.unregister(toaHelper);
 		eventBus.unregister(coxHelper);
+		eventBus.unregister(tobHelper);
+		eventBus.unregister(doomHelper);
+		tobHelper.reset();
+		doomHelper.reset();
 		fightManager.shutDown();
 		setOverlayVisible(false);
 	}
@@ -403,6 +420,24 @@ public class CombatLoggerPlugin extends Plugin
 		}
 		playerAnimationChanges.clear();
 
+		List<NPC> npcs = client.getNpcs();
+		for (int npcIndex : npcAnimationChanges)
+		{
+			NPC npc = npcs.stream()
+					.filter(n -> n.getIndex() == npcIndex)
+					.findFirst()
+					.orElse(null);
+			if (npc != null)
+			{
+				checkNpcAttackAnimation(npc, npc.getAnimation());
+			}
+		}
+		npcAnimationChanges.clear();
+		tobHelper.clearPendingVerzikP2Projectile();
+		tobHelper.clearPendingVerzikP3GreenBallProjectile();
+		tobHelper.clearPendingSoteBallProjectile();
+		doomHelper.clearPendingStyleProjectile();
+
 		for (int playerId : playerGraphicChanges)
 		{
 			Player player = players.stream()
@@ -419,7 +454,6 @@ public class CombatLoggerPlugin extends Plugin
 		checkPlayerRegion();
 		validatePartyMembers();
 
-		List<NPC> npcs = client.getNpcs();
 		npcs.forEach(npc -> {
 			this.logPosition(npc);
 		});
@@ -799,6 +833,120 @@ public class CombatLoggerPlugin extends Plugin
 		);
 	}
 
+	private void logNpcAttackAnimation(int animationId, NPC npc)
+	{
+		Actor interacting = npc.getInteracting();
+		String target = interacting != null ? getIdOrName(interacting) : "";
+		String targetName = "";
+		if (interacting != null && interacting.getName() != null)
+		{
+			targetName = Text.removeTags(interacting.getName());
+		}
+
+		Integer projectileId = null;
+		if (animationId == AnimationID.VERZIK_PHASE2_ATTACK_MAGIC)
+		{
+			projectileId = tobHelper.resolveVerzikP2ProjectileId();
+			if (projectileId != null && (target == null || target.isEmpty()))
+			{
+				// Prefer projectile target when Verzik isn't interacting
+				Actor projectileTarget = tobHelper.findVerzikP2ProjectileTarget(projectileId);
+				if (projectileTarget != null)
+				{
+					target = getIdOrName(projectileTarget);
+					if (projectileTarget.getName() != null)
+					{
+						targetName = Text.removeTags(projectileTarget.getName());
+					}
+				}
+			}
+		}
+		else if (animationId == AnimationID.VERZIK_PHASE3_ATTACK_RANGED)
+		{
+			// Green ball reuses the P3 range anim; acid-bomb projectile differentiates it.
+			projectileId = tobHelper.resolveVerzikP3GreenBallProjectileId();
+		}
+		else if (animationId == AnimationID.TOB_SOTETSEG_ATTACK_RANGED)
+		{
+			projectileId = tobHelper.resolveSoteBallProjectileId();
+			if (projectileId != null && (target == null || target.isEmpty()))
+			{
+				Actor projectileTarget = tobHelper.findSoteBallProjectileTarget(projectileId);
+				if (projectileTarget != null)
+				{
+					target = getIdOrName(projectileTarget);
+					if (projectileTarget.getName() != null)
+					{
+						targetName = Text.removeTags(projectileTarget.getName());
+					}
+				}
+			}
+		}
+		else if (animationId == AnimationID.DOM_STANDARD_RANGE_ATTACK
+				|| animationId == AnimationID.DOM_ROCK_THROW_ATTACK)
+		{
+			projectileId = doomHelper.resolveStyleProjectileId();
+		}
+
+		String source = getIdOrName(npc);
+		// Omit trailing tab when there is no target so line.trim() on upload does not
+		// strip a required delimiter and drop the line.
+		String message;
+		if (projectileId != null)
+		{
+			message = String.format("%s attack animation %d\t%s\t%d",
+					source, animationId, target == null ? "" : target, projectileId);
+		}
+		else if (target != null && !target.isEmpty())
+		{
+			message = String.format("%s attack animation %d\t%s", source, animationId, target);
+		}
+		else
+		{
+			message = String.format("%s attack animation %d", source, animationId);
+		}
+		logQueueManager.queue(
+				new AttackAnimationLog(
+						client.getTickCount(),
+						getCurrentTimestamp(),
+						message,
+						source,
+						target,
+						targetName,
+						animationId,
+						-1
+				)
+		);
+	}
+
+	private void checkNpcAttackAnimation(NPC npc, int animationId)
+	{
+		if (!NpcAttackAnimationIds.isNpcAttackAnimation(animationId))
+		{
+			return;
+		}
+
+		if (colosseumHelper.shouldSuppressAttackAnimation(npc, animationId))
+		{
+			return;
+		}
+
+		if ((animationId == AnimationID.TOB_SOTETSEG_ATTACK_MELEE
+				|| animationId == AnimationID.TOB_SOTETSEG_ATTACK_RANGED)
+				&& tobHelper.shouldSuppressSotetsegAttackAnimation())
+		{
+			return;
+		}
+
+		if (animationId == AnimationID.TOB_XARPUS_ATTACK_RANGED
+				&& tobHelper.shouldSuppressXarpusAttackAnimation())
+		{
+			return;
+		}
+
+		logNpcAttackAnimation(animationId, npc);
+	}
+
 	private void checkAttackAnimation(Player player, int animationId)
 	{
 		if (player.getInteracting() == null)
@@ -810,7 +958,7 @@ public class CombatLoggerPlugin extends Plugin
 
 		if (animationId == AnimationID.QUEST_LUNAR_PUSHING_MAGIC_ANIMATION)
 		{
-			checkVengeanceOtherCast(player);
+			checkTargetedLunarSpell(player);
 		}
 
 		if (AnimationIds.isPolledAttackAnimation(animationId))
@@ -834,11 +982,11 @@ public class CombatLoggerPlugin extends Plugin
 	}
 
 	/**
-	 * Vengeance Other cast: lunar "pushing magic" animation (4411) on the caster,
-	 * with the receiver as their interacting target.
+	 * Lunar push-magic casts that apply a graphic on the interacting player.
+	 * Distinguishes Vengeance Other (target gfx 725) from Heal Other (target gfx 736).
 	 * Caller must ensure {@code player.getInteracting()} is non-null.
 	 */
-	private void checkVengeanceOtherCast(Player player)
+	private void checkTargetedLunarSpell(Player player)
 	{
 		if (player == null || player.getName() == null)
 		{
@@ -851,10 +999,31 @@ public class CombatLoggerPlugin extends Plugin
 			return;
 		}
 
-		logQueueManager.queue(String.format(
-				"%s\tVENGEANCE_OTHER\t%s",
-				player.getName(),
-				Text.removeTags(interacting.getName())));
+		if (hasSpotAnimAtMost(interacting, SpotanimID.QUEST_LUNAR_SPELLBOOK_VENGEANCE_SPOT_ANIM, 12))
+		{
+			logQueueManager.queue(String.format(
+					"%s\tVENGEANCE_OTHER\t%s",
+					player.getName(),
+					Text.removeTags(interacting.getName())));
+			return;
+		}
+
+		if (hasSpotAnimAtMost(interacting, SpotanimID.QUEST_LUNAR_SPELLBOOK_ENERGY_CURE_SPOT_ANIM, 11))
+		{
+			logSpell(player, SpellIds.HEAL_OTHER);
+		}
+	}
+
+	private static boolean hasSpotAnimAtMost(Actor actor, int graphicId, int maxFrame)
+	{
+		for (ActorSpotAnim spotAnim : actor.getSpotAnims())
+		{
+			if (spotAnim.getId() == graphicId && spotAnim.getFrame() <= maxFrame)
+			{
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private void checkPlayerSpellGraphics(Player player)
@@ -949,14 +1118,23 @@ public class CombatLoggerPlugin extends Plugin
 	@Subscribe
 	public void onAnimationChanged(AnimationChanged event)
 	{
-		if (!(event.getActor() instanceof Player))
+		Actor actor = event.getActor();
+		if (actor instanceof Player)
 		{
+			// If we are standing right next to our target, the AnimationChanged event can fire before we are interacting
+			// So flag that it happened, but let onGameTick handle it, because it always fires last
+			playerAnimationChanges.add(((Player) actor).getId());
 			return;
 		}
 
-		// If we are standing right next to our target, the AnimationChanged event can fire before we are interacting
-		// So flag that it happened, but let onGameTick handle it, because it always fires last
-		playerAnimationChanges.add(((Player) event.getActor()).getId());
+		if (actor instanceof NPC)
+		{
+			NPC npc = (NPC) actor;
+			if (NpcAttackAnimationIds.isNpcAttackAnimation(npc.getAnimation()))
+			{
+				npcAnimationChanges.add(npc.getIndex());
+			}
+		}
 	}
 
 	private void checkSplash(Player local)
@@ -1502,7 +1680,7 @@ public class CombatLoggerPlugin extends Plugin
 	List<String> getInitialMessages()
 	{
 		List<String> messages = new ArrayList<>();
-		messages.add("Log Version 1.6.8");
+		messages.add("Log Version 1.6.9");
 
 		Player player = client.getLocalPlayer();
 		if (player == null || player.getName() == null)

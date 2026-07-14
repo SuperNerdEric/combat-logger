@@ -89,7 +89,7 @@ public class LogQueueManager
 			{
 				fightManager.handleGameMessage((GameMessageLog) log);
 			}
-			else if (log instanceof AttackAnimationLog)
+			else if (log instanceof AttackAnimationLog && !isNPC(((AttackAnimationLog) log).getSource()))
 			{
 				fightManager.addTicks((AttackAnimationLog) log);
 			}

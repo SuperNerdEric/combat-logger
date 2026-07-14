@@ -10,14 +10,15 @@ import net.runelite.api.gameval.SpotanimID;
  * <p>
  * Note: RuneLite names {@link SpotanimID#QUEST_LUNAR_SPELLBOOK_VENGEANCE_OTHER_SPOT_ANIM} (726)
  * for the self-cast graphic and {@link SpotanimID#QUEST_LUNAR_SPELLBOOK_VENGEANCE_SPOT_ANIM} (725)
- * for the Vengeance Other receive graphic. Vengeance Other casts are logged separately
- * from the caster's animation, not here.
+ * for the Vengeance Other receive graphic. Vengeance Other and Heal Other casts are logged
+ * from the caster's lunar push animation plus the target's receive graphic, not here.
  */
 public final class SpellIds
 {
 	public static final String VENGEANCE = "VENGEANCE";
 	public static final String VENGEANCE_OTHER = "VENGEANCE_OTHER";
 	public static final String SPELLBOOK_SWAP = "SPELLBOOK_SWAP";
+	public static final String HEAL_OTHER = "HEAL_OTHER";
 	public static final String DEATH_CHARGE = "DEATH_CHARGE";
 	public static final String MARK_OF_DARKNESS = "MARK_OF_DARKNESS";
 	public static final String WARD_OF_ARCEUUS = "WARD_OF_ARCEUUS";

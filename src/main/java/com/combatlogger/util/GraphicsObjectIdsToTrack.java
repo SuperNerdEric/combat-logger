@@ -22,6 +22,12 @@ public class GraphicsObjectIdsToTrack
 
 			SpotanimID.DEVIOUS_EXPLOSION, // Sotetseg maze rag
 
+			SpotanimID.TOB_SOTETSEG_SHAREDATTACK, // Sotetseg death ball
+
+			SpotanimID.TOB_SOTETSEG_MAGING, // Sotetseg mage ball
+
+			SpotanimID.TOB_SOTETSEG_RANGING, // Sotetseg range ball
+
 			SpotanimID.TOB_BLOAT_FALLING_FLESH1, // Bloat hand
 
 			SpotanimID.TOB_BLOAT_FALLING_FLESH2, // Bloat foot
@@ -42,6 +48,12 @@ public class GraphicsObjectIdsToTrack
 
 			SpotanimID.SPOTANIM_COLOSSI_FINALBOSS_03_MELEE, // Colosseum Sol dust
 
+			SpotanimID.VFX_MANTICORE_01_PROJECTILE_MAGIC_01, // Colosseum Manticore mage style
+
+			SpotanimID.VFX_MANTICORE_01_PROJECTILE_RANGED_01, // Colosseum Manticore ranged style
+
+			SpotanimID.VFX_MANTICORE_01_PROJECTILE_MELEE_01, // Colosseum Manticore melee style
+
 			SpotanimID.VFX_COLOSSEUM_CRYSTAL_CHARGE_01_BEAM_01, // Colosseum Sol laser scan
 
 			SpotanimID.VFX_COLOSSEUM_CRYSTAL_CHARGE_01_BEAM_02, // Colosseum Sol laser scan
@@ -60,6 +72,16 @@ public class GraphicsObjectIdsToTrack
 
 			SpotanimID.VFX_ROCK_PROJECTILE_IMPACT, // Doom of Mokhaiotl rock throw shadow impact
 
+			SpotanimID.VFX_STANDARD_PROJECTILE_MELEE, // Doom of Mokhaiotl melee orb
+
+			SpotanimID.VFX_STANDARD_PROJECTILE_MAGIC, // Doom of Mokhaiotl magic orb
+
+			SpotanimID.VFX_STANDARD_PROJECTILE_RANGE, // Doom of Mokhaiotl ranged orb
+
+			SpotanimID.VFX_ROCK_PROJECTILE_LAUNCH_RANGE, // Doom of Mokhaiotl ranged ball
+
+			SpotanimID.VFX_ROCK_PROJECTILE_LAUNCH_MAGIC, // Doom of Mokhaiotl magic ball
+
 			SpotanimID.VFX_AREA_SLAM_01, // Doom of Mokhaiotl shockwave shadow
 
 			SpotanimID.VFX_AREA_SLAM_02, // Doom of Mokhaiotl shockwave shadow
@@ -67,6 +89,8 @@ public class GraphicsObjectIdsToTrack
 			SpotanimID.VFX_AREA_SLAM_03, // Doom of Mokhaiotl shockwave shadow
 
 			SpotanimID.VFX_AREA_SLAM_04, // Doom of Mokhaiotl shockwave shadow
+
+			SpotanimID.VFX_BEAM_ATTACK_HEAD_01, // Doom of Mokhaiotl blast beam head
 
 			SpotanimID.VFX_DEMONIC_GRUB_SPAWN, // Doom of Mokhaiotl grub spawn
 
