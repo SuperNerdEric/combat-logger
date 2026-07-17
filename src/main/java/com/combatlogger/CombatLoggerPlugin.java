@@ -5,7 +5,6 @@ import com.combatlogger.encounters.CoxHelper;
 import com.combatlogger.encounters.DoomHelper;
 import com.combatlogger.encounters.ToaHelper;
 import com.combatlogger.encounters.TobHelper;
-import com.combatlogger.util.RaidWipeUtil;
 import com.combatlogger.messages.BaseCombatStatsMessage;
 import com.combatlogger.messages.BoostedCombatStatsMessage;
 import com.combatlogger.messages.DamageMessage;
@@ -35,7 +34,6 @@ import net.runelite.api.gameval.AnimationID;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.gameval.SpotanimID;
 import net.runelite.api.gameval.VarPlayerID;
-import net.runelite.api.gameval.VarbitID;
 import net.runelite.api.kit.KitType;
 import net.runelite.client.RuneLite;
 import net.runelite.client.callback.ClientThread;
@@ -97,14 +95,6 @@ public class CombatLoggerPlugin extends Plugin
 
 	private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("MM-dd-yyyy HH:mm:ss 'Z'Z", Locale.ENGLISH);
 	private static final Pattern ENCOUNTER_PATTERN = Pattern.compile("(Wave|Duration|Challenge)", Pattern.CASE_INSENSITIVE);
-
-	private static final List<Integer> TOB_ORBS_VARBITS = Arrays.asList(
-			VarbitID.TOB_CLIENT_P0,
-			VarbitID.TOB_CLIENT_P1,
-			VarbitID.TOB_CLIENT_P2,
-			VarbitID.TOB_CLIENT_P3,
-			VarbitID.TOB_CLIENT_P4
-	);
 
 	static
 	{
@@ -1314,16 +1304,23 @@ public class CombatLoggerPlugin extends Plugin
 			source = myName;
 		}
 
+		// RuneLite only exposes the coarse health bar (ratio out of scale), not exact hitpoints,
+		// so log it as-is for whichever actor (player or NPC) shows a health bar.
+		int targetHealthRatio = actor.getHealthRatio();
+		int targetHealthScale = actor.getHealthScale();
+
 		logQueueManager.queue(
 				new DamageLog(
 						client.getTickCount(),
 						getCurrentTimestamp(),
-						(String.format("%s\t%s\t%s\t%d", source, hitsplatName, target, damageAmount)),
+						DamageLog.formatMessage(source, hitsplatName, target, damageAmount, targetHealthRatio, targetHealthScale),
 						source,
 						getIdOrName(actor),
 						Text.removeTags(actor.getName()),
 						damageAmount,
-						hitsplatName
+						hitsplatName,
+						targetHealthRatio,
+						targetHealthScale
 				)
 		);
 
@@ -1375,16 +1372,6 @@ public class CombatLoggerPlugin extends Plugin
 		if (varbitChanged.getVarpId() == VarPlayerID.DIZANAS_QUIVER_TEMP_AMMO)
 		{
 			logEquipment(false);
-		}
-
-		if (varbitChanged.getValue() != 30)
-		{
-			return;
-		}
-
-		if (TOB_ORBS_VARBITS.contains(varbitChanged.getVarbitId()) && RaidWipeUtil.isWipe(client, TOB_ORBS_VARBITS))
-		{
-			logQueueManager.queue("Theatre of Blood Wipe");
 		}
 	}
 
@@ -1680,7 +1667,7 @@ public class CombatLoggerPlugin extends Plugin
 	List<String> getInitialMessages()
 	{
 		List<String> messages = new ArrayList<>();
-		messages.add("Log Version 1.6.9");
+		messages.add("Log Version 1.7.0");
 
 		Player player = client.getLocalPlayer();
 		if (player == null || player.getName() == null)

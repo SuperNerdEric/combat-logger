@@ -1,6 +1,7 @@
 package com.combatlogger.encounters;
 
 import com.combatlogger.LogQueueManager;
+import com.combatlogger.util.RaidWipeUtil;
 import net.runelite.api.Actor;
 import net.runelite.api.Client;
 import net.runelite.api.NPC;
@@ -13,9 +14,11 @@ import net.runelite.api.events.NpcChanged;
 import net.runelite.api.events.NpcDespawned;
 import net.runelite.api.events.NpcSpawned;
 import net.runelite.api.events.ProjectileMoved;
+import net.runelite.api.events.VarbitChanged;
 import net.runelite.api.gameval.AnimationID;
 import net.runelite.api.gameval.NpcID;
 import net.runelite.api.gameval.SpotanimID;
+import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.util.Text;
 
@@ -23,6 +26,7 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -175,8 +179,22 @@ public class TobHelper
 		P3
 	}
 
+	/** Party orb varbits; the count of non-empty orbs is the raid scale (party size). */
+	private static final List<Integer> TOB_ORB_VARBITS = Arrays.asList(
+			VarbitID.TOB_CLIENT_P0,
+			VarbitID.TOB_CLIENT_P1,
+			VarbitID.TOB_CLIENT_P2,
+			VarbitID.TOB_CLIENT_P3,
+			VarbitID.TOB_CLIENT_P4
+	);
+
 	private final Client client;
 	private final LogQueueManager logQueueManager;
+
+	/** Last logged boss health varbit value (0-1000), to only log on change. */
+	private int lastWaveProgressValue = -1;
+	/** Last logged raid scale, to only log once per raid. */
+	private int lastLoggedScale = -1;
 
 	/** First Verzik P2 style projectile seen this tick (cabbage/zap/purple/mage). */
 	private Integer pendingVerzikP2ProjectileId = null;
@@ -204,6 +222,76 @@ public class TobHelper
 	{
 		this.client = client;
 		this.logQueueManager = logQueueManager;
+	}
+
+	/**
+	 * Logs raw ToB boss health signals:
+	 * <ul>
+	 *     <li>{@code TOB_SCALE\t<partySize>} once per raid, so the boss's max hitpoints can be
+	 *     resolved from a scale-aware table.</li>
+	 *     <li>{@code TOB_BOSS_HP\t<value>} whenever the {@code TOB_CLIENT_WAVEPROGRESS_VAL} varbit
+	 *     changes, where {@code value} is 0-1000 (permille of the active boss's health remaining).</li>
+	 * </ul>
+	 * Also logs a {@code Theatre of Blood Wipe} when every party orb reads dead/hidden.
+	 */
+	@Subscribe
+	public void onVarbitChanged(VarbitChanged event)
+	{
+		int varbitId = event.getVarbitId();
+
+		if (varbitId == VarbitID.TOB_CLIENT_WAVEPROGRESS_VAL)
+		{
+			logScaleIfChanged();
+
+			int value = event.getValue();
+			if (value != lastWaveProgressValue)
+			{
+				lastWaveProgressValue = value;
+				logQueueManager.queue(String.format("TOB_BOSS_HP\t%d", value));
+			}
+		}
+		else if (TOB_ORB_VARBITS.contains(varbitId))
+		{
+			// An orb turning to 30 (dead) while all others are dead/hidden means the team wiped.
+			if (event.getValue() == 30 && RaidWipeUtil.isWipe(client, TOB_ORB_VARBITS))
+			{
+				logQueueManager.queue("Theatre of Blood Wipe");
+			}
+
+			if (getScale() == 0)
+			{
+				// Party orbs cleared: the raid ended, so reset per-raid state.
+				lastLoggedScale = -1;
+				lastWaveProgressValue = -1;
+			}
+		}
+	}
+
+	private void logScaleIfChanged()
+	{
+		int scale = getScale();
+		if (scale > 0 && scale != lastLoggedScale)
+		{
+			lastLoggedScale = scale;
+			logQueueManager.queue(String.format("TOB_SCALE\t%d", scale));
+		}
+	}
+
+	/**
+	 * @return the raid scale (party size 1-5) inferred from the occupied party orbs, or 0 when not
+	 * currently in a raid.
+	 */
+	private int getScale()
+	{
+		int scale = 0;
+		for (int orb : TOB_ORB_VARBITS)
+		{
+			if (client.getVarbitValue(orb) != 0)
+			{
+				scale++;
+			}
+		}
+		return scale;
 	}
 
 	@Subscribe

@@ -158,10 +158,10 @@ public class LogQueueManager
 						&& event.getTarget().equals(damageLog.getTarget())
 						&& HitSplatUtil.replaceMeWithExistingOther(event.getHitsplatName()).equals(damageLog.getHitsplatName()))
 				{
-					// Match found, update the existing damage log
+					// Match found, update the existing damage log while preserving any tracked target health
 					damageLog.setHitsplatName(newHitsplatName);
 					damageLog.setSource(eventMember.getDisplayName());
-					damageLog.setMessage(String.format("%s\t%s\t%s\t%d", eventMember.getDisplayName(), newHitsplatName, event.getTarget(), event.getDamage()));
+					damageLog.setMessage(DamageLog.formatMessage(eventMember.getDisplayName(), newHitsplatName, event.getTarget(), event.getDamage(), damageLog.getTargetHealthRatio(), damageLog.getTargetHealthScale()));
 					matchFound = true;
 					break;
 				}
