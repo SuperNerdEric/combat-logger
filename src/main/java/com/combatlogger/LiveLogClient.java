@@ -1,8 +1,12 @@
 package com.combatlogger;
 
+import com.combatlogger.util.LeaderboardRegions;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
+import net.runelite.api.Player;
+import net.runelite.api.coords.LocalPoint;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.chat.ChatMessageManager;
 import net.runelite.client.chat.QueuedMessage;
@@ -30,6 +34,10 @@ public class LiveLogClient
 {
 	private static final String DEFAULT_API_URL = "https://api.runelogs.com";
 	private static final long LOGOUT_SESSION_GAP_MS = 15 * 60 * 1000L;
+	/** Stop an automatically started live log after this long away from leaderboard content while logged in (~10 min). */
+	private static final long AUTO_LIVE_LOG_STOP_DELAY_MS = 10 * 60 * 1000L;
+	/** Stop an automatically started live log after this long logged out, regardless of where you were (~5 min). */
+	private static final long AUTO_LIVE_LOG_LOGGED_OUT_STOP_DELAY_MS = 5 * 60 * 1000L;
 	/** Game ticks between batch flushes (~2.4s at 0.6s/tick). */
 	private static final int FLUSH_INTERVAL_TICKS = 4;
 	/** Game ticks between heartbeats while idle (~30s at 0.6s/tick). */
@@ -49,6 +57,10 @@ public class LiveLogClient
 	private final Deque<String> pendingLines = new ArrayDeque<>();
 
 	private volatile boolean enabled;
+	// True when the current session was started automatically (leaderboard content auto-logging)
+	// rather than manually by the user. Used so auto-stop never kills a manually started session,
+	// and so the log page is not auto-opened for automatically started sessions.
+	private volatile boolean autoStarted;
 	private volatile String currentLogId;
 	private Supplier<List<String>> initialMessageSupplier = List::of;
 	private int lastFlushTick = -1;
@@ -63,6 +75,10 @@ public class LiveLogClient
 	private Instant loggedOutAt;
 	// Sends a "start" command on the next flush instead of appending to the current log.
 	private boolean needsNewSession;
+	// Auto live logging (leaderboard content): last time the player was in a leaderboard region, and
+	// whether they were in one on the previous tick (so we only auto-start on first entering it).
+	private Instant lastLeaderboardRegionAt;
+	private boolean wasInLeaderboardContent;
 
 	@Inject
 	private LiveLogClient(
@@ -93,6 +109,11 @@ public class LiveLogClient
 	public boolean isEnabled()
 	{
 		return enabled;
+	}
+
+	public boolean isAutoStarted()
+	{
+		return enabled && autoStarted;
 	}
 
 	public String getCurrentLogId()
@@ -140,11 +161,152 @@ public class LiveLogClient
 		}
 
 		this.enabled = true;
+		this.autoStarted = false;
 		needsNewSession = true;
 		batchFailureStartTick = -1;
+		loggedOutAt = null;
 		lastFlushTick = client.getTickCount();
 		lastHeartbeatTick = client.getTickCount();
 		sendLiveLogChatMessage("Runelogs live logging enabled.");
+	}
+
+	/**
+	 * Starts live logging automatically (e.g. on entering leaderboard content).
+	 * Unlike {@link #setEnabled(boolean)}, this never shows a popup dialog when live logging is not
+	 * allowed or no access key is configured - it just silently does nothing. Does nothing if live
+	 * logging is already enabled, so it never overrides a manual session.
+	 */
+	public void startAutomatic()
+	{
+		if (enabled || !canUseRunelogsLiveLogging())
+		{
+			return;
+		}
+
+		this.enabled = true;
+		this.autoStarted = true;
+		needsNewSession = true;
+		batchFailureStartTick = -1;
+		loggedOutAt = null;
+		lastFlushTick = client.getTickCount();
+		lastHeartbeatTick = client.getTickCount();
+		sendLiveLogChatMessage("Runelogs live logging automatically started.");
+	}
+
+	/**
+	 * Stops an automatically started live log. Does nothing if live logging is disabled or if the
+	 * current session was started manually, so a user's manual live log is never stopped.
+	 */
+	public void stopAutomatic()
+	{
+		if (!enabled || !autoStarted)
+		{
+			return;
+		}
+
+		if (currentLogId != null)
+		{
+			sendCommandAsync("stop", List.of(), false, 0, true, currentLogId);
+		}
+		disableLiveLogging(null, false, false, false);
+		sendLiveLogChatMessage("Runelogs live logging automatically stopped.");
+	}
+
+	/**
+	 * Automatically starts live logging when the player is in a leaderboard-content region, and stops
+	 * an automatically started log once the player has been away from any such region for 10 minutes.
+	 * A manually started live log is never stopped here, and no log page is opened automatically.
+	 * Stopping while logged out is handled separately by {@link #checkLoggedOutAutoStop()}.
+	 */
+	private void checkAutoLiveLogging()
+	{
+		if (!config.autoLiveLogLeaderboardContent())
+		{
+			// Feature is off: stop any log it started, but leave a manually started one running.
+			if (isAutoStarted())
+			{
+				stopAutomatic();
+			}
+			lastLeaderboardRegionAt = null;
+			wasInLeaderboardContent = false;
+			return;
+		}
+
+		if (client.getGameState() != GameState.LOGGED_IN)
+		{
+			return;
+		}
+
+		Player local = client.getLocalPlayer();
+		if (local == null)
+		{
+			return;
+		}
+
+		LocalPoint localPoint = local.getLocalLocation();
+		int regionId = localPoint == null ? -1 : WorldPoint.fromLocalInstance(client, localPoint).getRegionID();
+		if (regionId < 0)
+		{
+			// Region unknown (e.g. mid-loading) - keep current state instead of treating it as leaving content.
+			return;
+		}
+
+		boolean inLeaderboardContent = LeaderboardRegions.isLeaderboardRegion(regionId);
+
+		if (inLeaderboardContent)
+		{
+			lastLeaderboardRegionAt = Instant.now();
+
+			// Only auto-start when first entering leaderboard content, so a session the user manually
+			// stopped while still inside the content is not immediately restarted.
+			if (!wasInLeaderboardContent && !enabled)
+			{
+				startAutomatic();
+			}
+		}
+		else if (isAutoStarted() && lastLeaderboardRegionAt != null
+				&& Duration.between(lastLeaderboardRegionAt, Instant.now()).toMillis() >= AUTO_LIVE_LOG_STOP_DELAY_MS)
+		{
+			stopAutomatic();
+			lastLeaderboardRegionAt = null;
+		}
+
+		wasInLeaderboardContent = inLeaderboardContent;
+	}
+
+	/**
+	 * Stops an automatically started live log once the player has been logged out for 5 minutes,
+	 * regardless of where they were in game. Driven by client ticks (which keep firing on the login
+	 * screen) so the session is finalized without needing the player to log back in. A manually
+	 * started live log is never stopped here.
+	 */
+	private void checkLoggedOutAutoStop()
+	{
+		if (!enabled || !autoStarted || loggedOutAt == null)
+		{
+			return;
+		}
+
+		if (client.getGameState() == GameState.LOGGED_IN)
+		{
+			return;
+		}
+
+		if (Duration.between(loggedOutAt, Instant.now()).toMillis() >= AUTO_LIVE_LOG_LOGGED_OUT_STOP_DELAY_MS)
+		{
+			stopAutomatic();
+			// Reset leaderboard tracking so logging back in inside content starts a fresh auto session.
+			lastLeaderboardRegionAt = null;
+			wasInLeaderboardContent = false;
+		}
+	}
+
+	/**
+	 * Runs on every client tick (including while logged out) to drive the logged-out auto-stop.
+	 */
+	public void onClientTick()
+	{
+		checkLoggedOutAutoStop();
 	}
 
 	public void onGameStateChanged(GameState gameState)
@@ -222,6 +384,8 @@ public class LiveLogClient
 
 	public void onGameTick()
 	{
+		checkAutoLiveLogging();
+
 		if (!enabled)
 		{
 			return;
@@ -472,7 +636,7 @@ public class LiveLogClient
 		lastHeartbeatTick = client.getTickCount();
 		batchFailureStartTick = -1;
 
-		if (wasStart && config.openLiveLogPageOnStart() && currentLogId != null)
+		if (wasStart && config.openLiveLogPageOnStart() && !autoStarted && currentLogId != null)
 		{
 			LinkBrowser.browse("https://runelogs.com/log/" + currentLogId);
 		}
@@ -558,9 +722,11 @@ public class LiveLogClient
 		}
 
 		enabled = false;
+		autoStarted = false;
 		currentLogId = null;
 		needsNewSession = false;
 		batchFailureStartTick = -1;
+		loggedOutAt = null;
 
 		synchronized (pendingLock)
 		{

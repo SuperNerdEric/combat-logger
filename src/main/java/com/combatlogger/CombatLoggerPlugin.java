@@ -612,6 +612,7 @@ public class CombatLoggerPlugin extends Plugin
 	@Subscribe
 	public void onClientTick(ClientTick event)
 	{
+		liveLogClient.onClientTick();
 		pollTrackedGraphicObjects();
 	}
 
