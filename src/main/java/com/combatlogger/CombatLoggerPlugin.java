@@ -481,9 +481,35 @@ public class CombatLoggerPlugin extends Plugin
 		}
 	}
 
+	/**
+	 * We scrape position, equipment, and overhead prayers for the local player and party members.
+	 * We also do this for any nearby player while in an instanced region so that leaderboard-eligible
+	 * instanced content (e.g. raids) still captures other players who aren't in our RuneLite party.
+	 */
+	private boolean shouldTrackPlayer(Player player)
+	{
+		if (player == null || player.getName() == null)
+		{
+			return false;
+		}
+
+		Player localPlayer = client.getLocalPlayer();
+		if (localPlayer != null && player.getName().equals(localPlayer.getName()))
+		{
+			return true;
+		}
+
+		if (party.getMemberByDisplayName(player.getName()) != null)
+		{
+			return true;
+		}
+
+		return client.isInInstancedRegion();
+	}
+
 	private void logPosition(Player player)
 	{
-		if (party.getMemberByDisplayName(player.getName()) == null && !client.getLocalPlayer().getName().equals(player.getName()))
+		if (!shouldTrackPlayer(player))
 		{
 			return;
 		}
@@ -588,6 +614,7 @@ public class CombatLoggerPlugin extends Plugin
 	@Subscribe
 	public void onClientTick(ClientTick event)
 	{
+		liveLogClient.onClientTick();
 		pollTrackedGraphicObjects();
 	}
 
@@ -799,6 +826,13 @@ public class CombatLoggerPlugin extends Plugin
 	 */
 	private void validatePartyMembers()
 	{
+		if (client.isInInstancedRegion())
+		{
+			// While in an instanced region we track every nearby player (not just party members),
+			// so don't prune non-party members here. They're cleaned up once we leave the instance.
+			return;
+		}
+
 		List<String> partyMemberNames = party.getMembers().stream().map(PartyMember::getDisplayName).collect(Collectors.toList());
 		trackedPartyMembers.keySet().removeIf(name -> !partyMemberNames.contains(name) && !client.getLocalPlayer().getName().equals(name));
 	}

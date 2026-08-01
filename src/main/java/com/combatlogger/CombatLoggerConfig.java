@@ -68,11 +68,23 @@ public interface CombatLoggerConfig extends Config
 	}
 
 	@ConfigItem(
+			keyName = "autoLiveLogLeaderboardContent",
+			name = "Automatically Live Log",
+			description = "Automatically start live logging when you enter leaderboard content (raids, Inferno, Fight Caves, Colosseum, Gauntlet, etc.) and stop after you have been away from it for 10 minutes (or 5 minutes after logging out).",
+			section = runelogsSection,
+			position = 2
+	)
+	default boolean autoLiveLogLeaderboardContent()
+	{
+		return true;
+	}
+
+	@ConfigItem(
 			keyName = "openLiveLogPageOnStart",
 			name = "Automatically Open Log Page",
 			description = "Automatically open the live log page in your browser when live logging starts",
 			section = runelogsSection,
-			position = 2
+			position = 3
 	)
 	default boolean openLiveLogPageOnStart()
 	{

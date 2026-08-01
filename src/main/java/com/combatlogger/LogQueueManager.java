@@ -16,10 +16,15 @@ import net.runelite.client.party.PartyService;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static com.combatlogger.CombatLoggerPlugin.LOG_FILE;
 import static com.combatlogger.CombatLoggerPlugin.getCurrentTimestamp;
@@ -29,6 +34,12 @@ public class LogQueueManager
 {
 	private final Client client;
 	private final Queue<Log> logQueue = new ConcurrentLinkedQueue<>();
+
+	// File I/O runs on this single thread so it never blocks the client thread.
+	private ExecutorService writeExecutor;
+	// Only accessed from the writeExecutor thread.
+	private BufferedWriter writer;
+	private File writerFile;
 
 	@Inject
 	private ChatMessageManager chatMessageManager;
@@ -53,25 +64,35 @@ public class LogQueueManager
 
 	public void startUp(EventBus eventBus)
 	{
+		writeExecutor = Executors.newSingleThreadExecutor(runnable -> {
+			Thread thread = new Thread(runnable, "combat-logger-writer");
+			thread.setDaemon(true);
+			return thread;
+		});
 		eventBus.register(this);
 	}
 
 	public void shutDown(EventBus eventBus)
 	{
 		eventBus.unregister(this);
+		// Let any queued writes finish, then release the file handle.
+		writeExecutor.execute(this::closeWriter);
+		writeExecutor.shutdown();
 	}
 
 	@Subscribe
 	public void onGameTick(GameTick event)
 	{
 		int currentTick = client.getTickCount();
+		File logFile = LOG_FILE;
+		List<String> linesToWrite = new ArrayList<>();
 
 		// Wait until 2 ticks have passed before writing to the log file
 		// So that we can enrich the data from other players in the Party with DamageMessage
 		while (!logQueue.isEmpty() && currentTick >= logQueue.peek().getTickCount() + 2)
 		{
 			Log log = logQueue.poll();
-			log(log.getTickCount(), log.getTimestamp(), log.getMessage());
+			log(logFile, linesToWrite, log.getTickCount(), log.getTimestamp(), log.getMessage());
 
 			if (log instanceof DamageLog && isNPC(((DamageLog) log).getTarget()))
 			{
@@ -99,37 +120,86 @@ public class LogQueueManager
 			}
 		}
 
+		if (!linesToWrite.isEmpty())
+		{
+			writeExecutor.execute(() -> writeLines(logFile, linesToWrite));
+		}
+
 		// No need to call panel.onGameTick(event); as FightManager handles game ticks.
 	}
 
-	private void log(int tickCount, String timestamp, String message)
+	private void log(File logFile, List<String> linesToWrite, int tickCount, String timestamp, String message)
 	{
 		String formattedLine = String.format("%s %s\t%s", tickCount, timestamp, message);
-		if (LOG_FILE == null)
+		if (logFile == null)
 		{
 			liveLogClient.onLineLogged(formattedLine);
 			return;
 		}
 
-		try (BufferedWriter writer = new BufferedWriter(new FileWriter(LOG_FILE, true)))
+		linesToWrite.add(formattedLine);
+		if (config.logInChat())
 		{
-			writer.write(String.format("%s\n", formattedLine));
-			if (config.logInChat())
+			chatMessageManager
+					.queue(QueuedMessage.builder()
+							.type(ChatMessageType.GAMEMESSAGE)
+							.sender("combat-logger")
+							.runeLiteFormattedMessage(message.replace("\t", " "))
+							.build());
+		}
+
+		liveLogClient.onLineLogged(formattedLine);
+	}
+
+	/**
+	 * Runs on the writeExecutor thread. Keeps a single writer open across batches and only
+	 * reopens it when the target log file changes (e.g. ::newlog or a new login).
+	 */
+	private void writeLines(File logFile, List<String> lines)
+	{
+		try
+		{
+			if (writer == null || !logFile.equals(writerFile))
 			{
-				chatMessageManager
-						.queue(QueuedMessage.builder()
-								.type(ChatMessageType.GAMEMESSAGE)
-								.sender("combat-logger")
-								.runeLiteFormattedMessage(message.replace("\t", " "))
-								.build());
+				closeWriter();
+				writer = new BufferedWriter(new FileWriter(logFile, true));
+				writerFile = logFile;
 			}
+
+			for (String line : lines)
+			{
+				writer.write(line);
+				writer.write('\n');
+			}
+			writer.flush();
+		}
+		catch (IOException e)
+		{
+			e.printStackTrace();
+			closeWriter();
+		}
+	}
+
+	private void closeWriter()
+	{
+		if (writer == null)
+		{
+			return;
+		}
+
+		try
+		{
+			writer.close();
 		}
 		catch (IOException e)
 		{
 			e.printStackTrace();
 		}
-
-		liveLogClient.onLineLogged(formattedLine);
+		finally
+		{
+			writer = null;
+			writerFile = null;
+		}
 	}
 
 	@Subscribe
