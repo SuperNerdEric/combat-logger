@@ -43,6 +43,8 @@ public final class LeaderboardRegions
 
 		putAll(regions, "Yama", 6045);
 
+		putAll(regions, "Maggot King", 11645);
+
 		REGION_TO_CONTENT = Collections.unmodifiableMap(regions);
 	}
 
