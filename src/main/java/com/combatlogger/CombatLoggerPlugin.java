@@ -44,6 +44,8 @@ import net.runelite.client.eventbus.EventBus;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.events.PartyChanged;
+import net.runelite.client.externalplugins.ExternalPluginManager;
+import net.runelite.client.externalplugins.PluginHubManifest;
 import net.runelite.client.party.PartyMember;
 import net.runelite.client.party.PartyService;
 import net.runelite.client.party.WSClient;
@@ -1664,10 +1666,22 @@ public class CombatLoggerPlugin extends Plugin
 		}
 	}
 
+	public static String getPluginVersion()
+	{
+		PluginHubManifest.DisplayData displayData = ExternalPluginManager.getDisplayData(CombatLoggerPlugin.class);
+
+		if (displayData != null && displayData.getVersion() != null)
+		{
+			return displayData.getVersion();
+		}
+
+		return "DEV";
+	}
+
 	List<String> getInitialMessages()
 	{
 		List<String> messages = new ArrayList<>();
-		messages.add("Log Version 1.7.0");
+		messages.add("Log Version " + getPluginVersion());
 
 		Player player = client.getLocalPlayer();
 		if (player == null || player.getName() == null)
