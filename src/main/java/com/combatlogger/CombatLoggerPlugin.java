@@ -9,8 +9,12 @@ import com.combatlogger.messages.BaseCombatStatsMessage;
 import com.combatlogger.messages.BoostedCombatStatsMessage;
 import com.combatlogger.messages.DamageMessage;
 import com.combatlogger.messages.EquipmentMessage;
+import com.combatlogger.messages.InventoryMessage;
 import com.combatlogger.messages.PrayerMessage;
+import com.combatlogger.messages.SpecialAttackMessage;
+import com.combatlogger.messages.SpellbookMessage;
 import com.combatlogger.model.Fight;
+import com.combatlogger.model.GameItem;
 import com.combatlogger.model.TrackedGraphicObject;
 import com.combatlogger.model.TrackedNpc;
 import com.combatlogger.model.TrackedPartyMember;
@@ -34,6 +38,7 @@ import net.runelite.api.gameval.AnimationID;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.gameval.SpotanimID;
 import net.runelite.api.gameval.VarPlayerID;
+import net.runelite.api.gameval.VarbitID;
 import net.runelite.api.kit.KitType;
 import net.runelite.client.RuneLite;
 import net.runelite.client.callback.ClientThread;
@@ -98,6 +103,15 @@ public class CombatLoggerPlugin extends Plugin
 	private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("MM-dd-yyyy HH:mm:ss 'Z'Z", Locale.ENGLISH);
 	private static final Pattern ENCOUNTER_PATTERN = Pattern.compile("(Wave|Duration|Challenge)", Pattern.CASE_INSENSITIVE);
 
+	private static final int[] RUNE_POUCH_AMOUNT_VARBITS = {
+			VarbitID.RUNE_POUCH_QUANTITY_1, VarbitID.RUNE_POUCH_QUANTITY_2, VarbitID.RUNE_POUCH_QUANTITY_3,
+			VarbitID.RUNE_POUCH_QUANTITY_4, VarbitID.RUNE_POUCH_QUANTITY_5, VarbitID.RUNE_POUCH_QUANTITY_6,
+	};
+	private static final int[] RUNE_POUCH_RUNE_VARBITS = {
+			VarbitID.RUNE_POUCH_TYPE_1, VarbitID.RUNE_POUCH_TYPE_2, VarbitID.RUNE_POUCH_TYPE_3,
+			VarbitID.RUNE_POUCH_TYPE_4, VarbitID.RUNE_POUCH_TYPE_5, VarbitID.RUNE_POUCH_TYPE_6,
+	};
+
 	static
 	{
 		DIRECTORY = new File(RuneLite.RUNELITE_DIR, DIRECTORY_NAME);
@@ -115,6 +129,11 @@ public class CombatLoggerPlugin extends Plugin
 	private int hitpointsXpLastUpdated = -1;
 	private List<Integer> previousPrayers;
 	private List<Integer> previousItemIds;
+	private List<GameItem> previousInventory;
+	private List<GameItem> previousRunePouch;
+	private boolean inventoryLogScheduled;
+	private int previousSpellbook = -1;
+	private int previousSpecialAttack = -1;
 	private Set<Integer> playerAnimationChanges = new HashSet<>();
 	private Set<Integer> npcAnimationChanges = new HashSet<>();
 	private Set<Integer> playerGraphicChanges = new HashSet<>();
@@ -218,6 +237,9 @@ public class CombatLoggerPlugin extends Plugin
 		wsClient.registerMessage(BaseCombatStatsMessage.class);
 		wsClient.registerMessage(BoostedCombatStatsMessage.class);
 		wsClient.registerMessage(EquipmentMessage.class);
+		wsClient.registerMessage(InventoryMessage.class);
+		wsClient.registerMessage(SpellbookMessage.class);
+		wsClient.registerMessage(SpecialAttackMessage.class);
 		wsClient.registerMessage(PrayerMessage.class);
 
 		if (config.enableOverlay())
@@ -234,6 +256,11 @@ public class CombatLoggerPlugin extends Plugin
 		previousBoostedStats = null;
 		previousPrayers = null;
 		previousItemIds = null;
+		previousInventory = null;
+		previousRunePouch = null;
+		inventoryLogScheduled = false;
+		previousSpellbook = -1;
+		previousSpecialAttack = -1;
 		playerAnimationChanges.clear();
 		npcAnimationChanges.clear();
 		playerGraphicChanges.clear();
@@ -245,6 +272,9 @@ public class CombatLoggerPlugin extends Plugin
 		wsClient.unregisterMessage(BaseCombatStatsMessage.class);
 		wsClient.unregisterMessage(BoostedCombatStatsMessage.class);
 		wsClient.unregisterMessage(EquipmentMessage.class);
+		wsClient.unregisterMessage(InventoryMessage.class);
+		wsClient.unregisterMessage(SpellbookMessage.class);
+		wsClient.unregisterMessage(SpecialAttackMessage.class);
 		wsClient.unregisterMessage(PrayerMessage.class);
 		clientToolbar.removeNavigation(navButton);
 		panel = null;
@@ -1203,6 +1233,10 @@ public class CombatLoggerPlugin extends Plugin
 		{
 			logEquipment(false);
 		}
+		else if (itemContainerChanged.getContainerId() == InventoryID.INV)
+		{
+			scheduleInventoryLog();
+		}
 	}
 
 	private void logEquipment(boolean forceLogging)
@@ -1226,12 +1260,110 @@ public class CombatLoggerPlugin extends Plugin
 		}
 	}
 
+	private void scheduleInventoryLog()
+	{
+		// The rune pouch quantity varbits fire once per rune type, so a single spell cast can
+		// trigger several events on the same tick. Defer the read so we only log the settled state once.
+		if (inventoryLogScheduled)
+		{
+			return;
+		}
+
+		inventoryLogScheduled = true;
+		clientThread.invokeLater(() ->
+		{
+			inventoryLogScheduled = false;
+			logInventory(false);
+		});
+	}
+
+	private void logInventory(boolean forceLogging)
+	{
+		List<GameItem> currentInventory = getCurrentInventory();
+		if (currentInventory == null)
+		{
+			return;
+		}
+		List<GameItem> currentRunePouch = getCurrentRunePouch();
+
+		boolean inventoryChanged = forceLogging || !Objects.equals(currentInventory, previousInventory);
+		boolean runePouchChanged = forceLogging || !Objects.equals(currentRunePouch, previousRunePouch);
+
+		if (!inventoryChanged && !runePouchChanged)
+		{
+			return;
+		}
+
+		if (party.isInParty())
+		{
+			InventoryMessage inventoryMessage = new InventoryMessage(currentInventory, currentRunePouch);
+			clientThread.invokeLater(() -> party.send(inventoryMessage));
+		}
+
+		String name = client.getLocalPlayer().getName();
+		if (inventoryChanged)
+		{
+			previousInventory = currentInventory;
+			logQueueManager.queue(String.format("%s\tINVENTORY\t%s", name, formatItems(currentInventory)));
+		}
+		if (runePouchChanged)
+		{
+			previousRunePouch = currentRunePouch;
+			logQueueManager.queue(String.format("%s\tRUNE_POUCH\t%s", name, formatItems(currentRunePouch)));
+		}
+	}
+
+	private void logSpellbook(boolean forceLogging)
+	{
+		// 0 = Standard, 1 = Ancient, 2 = Lunar, 3 = Arceuus
+		int currentSpellbook = client.getVarbitValue(VarbitID.SPELLBOOK);
+
+		if (forceLogging || currentSpellbook != previousSpellbook)
+		{
+			if (party.isInParty())
+			{
+				SpellbookMessage spellbookMessage = new SpellbookMessage(currentSpellbook);
+				clientThread.invokeLater(() -> party.send(spellbookMessage));
+			}
+
+			previousSpellbook = currentSpellbook;
+			logQueueManager.queue(String.format("%s\tSPELLBOOK\t%d", client.getLocalPlayer().getName(), currentSpellbook));
+		}
+	}
+
+	private void logSpecialAttack(boolean forceLogging)
+	{
+		// The raw varp is stored as tenths of a percent, so divide by 10 for a 0-100 value.
+		int currentSpecialAttack = client.getVarpValue(VarPlayerID.SA_ENERGY) / 10;
+
+		if (forceLogging || currentSpecialAttack != previousSpecialAttack)
+		{
+			if (party.isInParty())
+			{
+				SpecialAttackMessage specialAttackMessage = new SpecialAttackMessage(currentSpecialAttack);
+				clientThread.invokeLater(() -> party.send(specialAttackMessage));
+			}
+
+			previousSpecialAttack = currentSpecialAttack;
+			logQueueManager.queue(String.format("%s\tSPECIAL_ATTACK\t%d", client.getLocalPlayer().getName(), currentSpecialAttack));
+		}
+	}
+
 	@Subscribe
 	public void onUserSync(final UserSync event)
 	{
 		clientThread.invokeAtTickEnd(() -> {
 			EquipmentMessage equipmentMessage = new EquipmentMessage(previousItemIds);
 			party.send(equipmentMessage);
+
+			InventoryMessage inventoryMessage = new InventoryMessage(previousInventory, previousRunePouch);
+			party.send(inventoryMessage);
+
+			SpellbookMessage spellbookMessage = new SpellbookMessage(previousSpellbook);
+			party.send(spellbookMessage);
+
+			SpecialAttackMessage specialAttackMessage = new SpecialAttackMessage(previousSpecialAttack);
+			party.send(specialAttackMessage);
 
 			PrayerMessage prayerMessage = new PrayerMessage(previousPrayers);
 			party.send(prayerMessage);
@@ -1258,6 +1390,55 @@ public class CombatLoggerPlugin extends Plugin
 		PartyMember eventMember = party.getMemberById(event.getMemberId());
 
 		logQueueManager.queue(String.format("%s\tEQUIPMENT\t%s", eventMember.getDisplayName(), event.getItemIds()));
+	}
+
+	@Subscribe
+	public void onInventoryMessage(InventoryMessage event)
+	{
+		PartyMember localMember = party.getLocalMember();
+		if (localMember == null || localMember.getMemberId() == event.getMemberId())
+		{
+			// Don't need to update logs from ourselves
+			return;
+		}
+
+		markMemberHasPlugin(event.getMemberId());
+		PartyMember eventMember = party.getMemberById(event.getMemberId());
+
+		logQueueManager.queue(String.format("%s\tINVENTORY\t%s", eventMember.getDisplayName(), formatItems(event.getInventory())));
+		logQueueManager.queue(String.format("%s\tRUNE_POUCH\t%s", eventMember.getDisplayName(), formatItems(event.getRunePouch())));
+	}
+
+	@Subscribe
+	public void onSpellbookMessage(SpellbookMessage event)
+	{
+		PartyMember localMember = party.getLocalMember();
+		if (localMember == null || localMember.getMemberId() == event.getMemberId())
+		{
+			// Don't need to update logs from ourselves
+			return;
+		}
+
+		markMemberHasPlugin(event.getMemberId());
+		PartyMember eventMember = party.getMemberById(event.getMemberId());
+
+		logQueueManager.queue(String.format("%s\tSPELLBOOK\t%d", eventMember.getDisplayName(), event.getSpellbook()));
+	}
+
+	@Subscribe
+	public void onSpecialAttackMessage(SpecialAttackMessage event)
+	{
+		PartyMember localMember = party.getLocalMember();
+		if (localMember == null || localMember.getMemberId() == event.getMemberId())
+		{
+			// Don't need to update logs from ourselves
+			return;
+		}
+
+		markMemberHasPlugin(event.getMemberId());
+		PartyMember eventMember = party.getMemberById(event.getMemberId());
+
+		logQueueManager.queue(String.format("%s\tSPECIAL_ATTACK\t%d", eventMember.getDisplayName(), event.getSpecialAttack()));
 	}
 
 	@Subscribe
@@ -1408,6 +1589,22 @@ public class CombatLoggerPlugin extends Plugin
 		if (varbitChanged.getVarpId() == VarPlayerID.DIZANAS_QUIVER_TEMP_AMMO)
 		{
 			logEquipment(false);
+		}
+
+		if (varbitChanged.getVarpId() == VarPlayerID.SA_ENERGY)
+		{
+			logSpecialAttack(false);
+		}
+
+		if (ArrayUtils.contains(RUNE_POUCH_RUNE_VARBITS, varbitChanged.getVarbitId())
+				|| ArrayUtils.contains(RUNE_POUCH_AMOUNT_VARBITS, varbitChanged.getVarbitId()))
+		{
+			scheduleInventoryLog();
+		}
+
+		if (varbitChanged.getVarbitId() == VarbitID.SPELLBOOK)
+		{
+			logSpellbook(false);
 		}
 	}
 
@@ -1746,6 +1943,25 @@ public class CombatLoggerPlugin extends Plugin
 			messages.add(String.format("%s\tEQUIPMENT\t%s", name, equipment));
 		}
 
+		List<GameItem> inventory = getCurrentInventory();
+		if (inventory != null)
+		{
+			previousInventory = inventory;
+			messages.add(String.format("%s\tINVENTORY\t%s", name, formatItems(inventory)));
+
+			List<GameItem> runePouch = getCurrentRunePouch();
+			previousRunePouch = runePouch;
+			messages.add(String.format("%s\tRUNE_POUCH\t%s", name, formatItems(runePouch)));
+		}
+
+		int spellbook = client.getVarbitValue(VarbitID.SPELLBOOK);
+		previousSpellbook = spellbook;
+		messages.add(String.format("%s\tSPELLBOOK\t%d", name, spellbook));
+
+		int specialAttack = client.getVarpValue(VarPlayerID.SA_ENERGY) / 10;
+		previousSpecialAttack = specialAttack;
+		messages.add(String.format("%s\tSPECIAL_ATTACK\t%d", name, specialAttack));
+
 		messages.add(String.format("%s\tPRAYERS\t%s", name, getCurrentActivePrayers()));
 		return messages;
 	}
@@ -1763,6 +1979,96 @@ public class CombatLoggerPlugin extends Plugin
 				.collect(Collectors.toList());
 		currentItemIds.add(client.getVarpValue(VarPlayerID.DIZANAS_QUIVER_TEMP_AMMO));
 		return currentItemIds;
+	}
+
+	/**
+	 * Returns every inventory slot in order with its stack size. Empty slots are kept as id -1
+	 * so slot positions are preserved.
+	 */
+	private List<GameItem> getCurrentInventory()
+	{
+		ItemContainer inventoryContainer = client.getItemContainer(InventoryID.INV);
+		if (inventoryContainer == null)
+		{
+			return null;
+		}
+
+		List<GameItem> items = new ArrayList<>();
+		for (Item item : inventoryContainer.getItems())
+		{
+			if (item.getId() < 0 || item.getQuantity() <= 0)
+			{
+				// Empty slot; -1 with no quantity keeps the slot position without extra payload.
+				items.add(GameItem.of(-1, 1));
+			}
+			else
+			{
+				items.add(GameItem.of(item.getId(), item.getQuantity()));
+			}
+		}
+		return items;
+	}
+
+	/**
+	 * Returns the runes stored in the rune pouch (or divine rune pouch) with their stack sizes.
+	 * Empty slots are omitted.
+	 */
+	private List<GameItem> getCurrentRunePouch()
+	{
+		List<GameItem> items = new ArrayList<>();
+		EnumComposition runePouchEnum = client.getEnum(EnumID.RUNEPOUCH_RUNE);
+		if (runePouchEnum == null)
+		{
+			return items;
+		}
+
+		for (int i = 0; i < RUNE_POUCH_AMOUNT_VARBITS.length; i++)
+		{
+			int amount = client.getVarbitValue(RUNE_POUCH_AMOUNT_VARBITS[i]);
+			if (amount <= 0)
+			{
+				continue;
+			}
+
+			int runeType = client.getVarbitValue(RUNE_POUCH_RUNE_VARBITS[i]);
+			if (runeType == 0)
+			{
+				continue;
+			}
+
+			items.add(GameItem.of(runePouchEnum.getIntValue(runeType), amount));
+		}
+		return items;
+	}
+
+	/**
+	 * Formats items as a list where single items are just their id and stacks are "id:quantity",
+	 * e.g. [1234, 560:5000].
+	 */
+	private static String formatItems(List<GameItem> items)
+	{
+		if (items == null)
+		{
+			return "[]";
+		}
+
+		StringBuilder builder = new StringBuilder("[");
+		for (int i = 0; i < items.size(); i++)
+		{
+			if (i > 0)
+			{
+				builder.append(", ");
+			}
+
+			GameItem item = items.get(i);
+			builder.append(item.getId());
+			if (item.getQuantity() != 1)
+			{
+				builder.append(":").append(item.getQuantity());
+			}
+		}
+		builder.append("]");
+		return builder.toString();
 	}
 
 	private List<Integer> getCurrentActivePrayers()
