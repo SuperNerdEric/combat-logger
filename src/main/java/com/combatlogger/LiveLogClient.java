@@ -735,12 +735,11 @@ public class LiveLogClient
 			inFlight = false;
 		}
 
-		if (showError && message != null)
+		if (message != null && (showError || notifyInChat))
 		{
-			showErrorDialog(message);
+			sendLiveLogChatMessageMultiline(message);
 		}
-
-		if (notifyInChat)
+		else if (notifyInChat)
 		{
 			sendLiveLogChatMessage("Runelogs live logging disabled");
 		}
@@ -818,5 +817,17 @@ public class LiveLogClient
 				.type(ChatMessageType.GAMEMESSAGE)
 				.runeLiteFormattedMessage(String.format("<col=cc0000>%s</col>", message))
 				.build());
+	}
+
+	private void sendLiveLogChatMessageMultiline(String message)
+	{
+		for (String line : message.split("\n"))
+		{
+			line = line.trim();
+			if (!line.isEmpty())
+			{
+				sendLiveLogChatMessage(line);
+			}
+		}
 	}
 }
