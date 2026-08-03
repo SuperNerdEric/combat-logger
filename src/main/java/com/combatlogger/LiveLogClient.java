@@ -27,6 +27,7 @@ import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Supplier;
 
 @Singleton
@@ -52,7 +53,11 @@ public class LiveLogClient
 	private final ClientThread clientThread;
 	private final ChatMessageManager chatMessageManager;
 	private final HttpClient httpClient;
-	private final ExecutorService executor = Executors.newSingleThreadExecutor();
+	// Created in startUp() and terminated in shutDown(). The plugin is a @Singleton, so a
+	// disable/enable cycle reuses this instance; recreating here keeps every send from throwing
+	// RejectedExecutionException on a terminated pool. volatile because startUp/shutDown and sends
+	// run on different threads.
+	private volatile ExecutorService executor;
 	private final Object pendingLock = new Object();
 	private final Deque<String> pendingLines = new ArrayDeque<>();
 
@@ -96,6 +101,14 @@ public class LiveLogClient
 				.build();
 	}
 
+	public void startUp()
+	{
+		if (executor == null || executor.isShutdown())
+		{
+			executor = Executors.newSingleThreadExecutor();
+		}
+	}
+
 	public void shutDown()
 	{
 		if (enabled && currentLogId != null)
@@ -103,7 +116,10 @@ public class LiveLogClient
 			sendCommandAsync("stop", List.of(), false, 0, true, currentLogId);
 		}
 		disableLiveLogging(null, false, false, false);
-		executor.shutdownNow();
+		if (executor != null)
+		{
+			executor.shutdownNow();
+		}
 	}
 
 	public boolean isEnabled()
@@ -527,10 +543,18 @@ public class LiveLogClient
 		if (blocking)
 		{
 			task.run();
+			return;
 		}
-		else
+
+		try
 		{
 			executor.execute(task);
+		}
+		catch (RejectedExecutionException e)
+		{
+			// Executor was shut down (e.g. a disable/enable race). Release the in-flight guard so
+			// the flush loop can recover on the next tick instead of buffering until overflow.
+			clearInFlight();
 		}
 	}
 

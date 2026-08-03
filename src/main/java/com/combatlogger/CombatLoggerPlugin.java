@@ -232,6 +232,7 @@ public class CombatLoggerPlugin extends Plugin
 		// startUp runs on a separate thread; client reads must be on the client thread
 		clientThread.invokeLater(this::createLogFile);
 		sendReminderMessage();
+		liveLogClient.startUp();
 		liveLogClient.setInitialMessageSupplier(this::getInitialMessages);
 		wsClient.registerMessage(DamageMessage.class);
 		wsClient.registerMessage(BaseCombatStatsMessage.class);
