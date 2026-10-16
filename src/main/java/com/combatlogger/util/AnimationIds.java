@@ -121,7 +121,11 @@ public class AnimationIds
 			AnimationID.TECPATL_STAB, // Earthbound tecpatl
 			AnimationID.FORESTRY_2H_AXE_ATTACK, // Felling axe
 			AnimationID.SLICE_PLAYER_MACE_SPECIAL_ATTACK, // Ancient mace spec
-			AnimationID.PMOON_MACUAHUITL_CRUSH // Dual macuahuitl
+			AnimationID.PMOON_MACUAHUITL_CRUSH, // Dual macuahuitl
+			AnimationID.HUMAN_HALLOWFELL_CHOP, // Hallowfell
+			AnimationID.HUMAN_HALLOWFELL_SLASH, // Hallowfell
+			AnimationID.HUMAN_HALLOWFELL_SMASH, // Hallowfell
+			AnimationID.HUMAN_HALLOWFELL_BLOCK // Hallowfell
 	);
 
 	public static final List<Integer> RANGED_IDS = Arrays.asList(
@@ -423,6 +427,12 @@ public class AnimationIds
 				break;
 
 			// 6 Tick Animations (and alternatives)
+			case AnimationID.HUMAN_HALLOWFELL_CHOP: // Hallowfell
+			case AnimationID.HUMAN_HALLOWFELL_SLASH:
+			case AnimationID.HUMAN_HALLOWFELL_SMASH:
+			case AnimationID.HUMAN_HALLOWFELL_BLOCK:
+				ticks = 6;
+				break;
 			case AnimationID.HUMAN_BLUNT_POUND:
 				if (weaponId == ItemID.DRAGON_WARHAMMER || weaponId == ItemID.BH_DRAGON_WARHAMMER_CORRUPTED)
 				{
