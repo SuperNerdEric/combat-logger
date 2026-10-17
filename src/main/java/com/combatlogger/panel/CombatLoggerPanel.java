@@ -18,6 +18,7 @@ import javax.inject.Inject;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.awt.datatransfer.StringSelection;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
@@ -92,8 +93,8 @@ public class CombatLoggerPanel extends PluginPanel
 		iconPanel.add(Box.createHorizontalStrut(10));
 		iconPanel.add(createButton(
 				FOLDER_ICON,
-				"Open combat log folder",
-				() -> LinkBrowser.open(DIRECTORY.toString())
+				"Copy combat log folder path",
+				this::copyLogFolderPath
 		));
 
 		topPanel.add(iconPanel, BorderLayout.EAST);
@@ -269,6 +270,19 @@ public class CombatLoggerPanel extends PluginPanel
 		{
 			fightsComboBox.setSelectedItem(selectedFight);
 		}
+	}
+
+	private void copyLogFolderPath()
+	{
+		String path = DIRECTORY.toString();
+		Toolkit.getDefaultToolkit()
+				.getSystemClipboard()
+				.setContents(new StringSelection(path), null);
+		JOptionPane.showMessageDialog(
+				this,
+				"Combat log folder path copied to your clipboard:\n" + path,
+				"Combat Logger",
+				JOptionPane.INFORMATION_MESSAGE);
 	}
 
 	public JButton createButton(ImageIcon icon, String toolTipText, Runnable onClick)

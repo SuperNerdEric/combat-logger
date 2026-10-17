@@ -11,14 +11,15 @@ import net.runelite.client.callback.ClientThread;
 import net.runelite.client.chat.ChatMessageManager;
 import net.runelite.client.chat.QueuedMessage;
 import net.runelite.client.util.LinkBrowser;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.swing.JOptionPane;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
+import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
@@ -28,7 +29,10 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
+
+import static net.runelite.http.api.RuneLiteAPI.JSON;
 
 @Singleton
 public class LiveLogClient
@@ -52,7 +56,7 @@ public class LiveLogClient
 	private final Client client;
 	private final ClientThread clientThread;
 	private final ChatMessageManager chatMessageManager;
-	private final HttpClient httpClient;
+	private final OkHttpClient httpClient;
 	// Created in startUp() and terminated in shutDown(). The plugin is a @Singleton, so a
 	// disable/enable cycle reuses this instance; recreating here keeps every send from throwing
 	// RejectedExecutionException on a terminated pool. volatile because startUp/shutDown and sends
@@ -90,14 +94,18 @@ public class LiveLogClient
 			CombatLoggerConfig config,
 			Client client,
 			ClientThread clientThread,
-			ChatMessageManager chatMessageManager)
+			ChatMessageManager chatMessageManager,
+			OkHttpClient okHttpClient)
 	{
 		this.config = config;
 		this.client = client;
 		this.clientThread = clientThread;
 		this.chatMessageManager = chatMessageManager;
-		this.httpClient = HttpClient.newBuilder()
-				.connectTimeout(Duration.ofSeconds(10))
+		// Derived from the injected client so the connection pool and dispatcher stay shared.
+		this.httpClient = okHttpClient.newBuilder()
+				.connectTimeout(10, TimeUnit.SECONDS)
+				.readTimeout(15, TimeUnit.SECONDS)
+				.writeTimeout(15, TimeUnit.SECONDS)
 				.build();
 	}
 
@@ -587,46 +595,46 @@ public class LiveLogClient
 
 		try
 		{
-			HttpRequest request = HttpRequest.newBuilder()
-					.uri(URI.create(DEFAULT_API_URL + "/live-log/ingest"))
-					.timeout(Duration.ofSeconds(15))
+			Request request = new Request.Builder()
+					.url(DEFAULT_API_URL + "/live-log/ingest")
 					.header("Authorization", "Bearer " + config.runelogsAccessKey().trim())
-					.header("Content-Type", "application/json")
-					.POST(HttpRequest.BodyPublishers.ofString(buildRequestBody(command, lines, sessionLogId)))
+					.post(RequestBody.create(JSON, buildRequestBody(command, lines, sessionLogId)))
 					.build();
 
-			HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-			int statusCode = response.statusCode();
-			if (statusCode >= 200 && statusCode < 300)
+			try (Response response = httpClient.newCall(request).execute())
 			{
-				String body = response.body();
-				clientThread.invokeLater(() -> handleSendSuccess(body, isStart, pendingLinesToAck));
-			}
-			else if (isStart)
-			{
-				clientThread.invokeLater(() -> handleStartFailure(
-						"Could not connect to Runelogs (HTTP " + statusCode + ").\n\n"
-								+ "Check your access key and try again."));
-			}
-			else if ("stop".equals(command) && (statusCode == 404 || statusCode == 409))
-			{
-				// Session already ended server-side.
-			}
-			else if (("batch".equals(command) || "heartbeat".equals(command))
-					&& (statusCode == 404 || statusCode == 409))
-			{
-				clientThread.invokeLater(this::handleSessionInactive);
-			}
-			else if ("batch".equals(command))
-			{
-				clientThread.invokeLater(this::handleBatchFailure);
-			}
-			else if ("heartbeat".equals(command))
-			{
-				clientThread.invokeLater(this::handleBatchFailure);
+				int statusCode = response.code();
+				String body = response.body() != null ? response.body().string() : "";
+				if (statusCode >= 200 && statusCode < 300)
+				{
+					clientThread.invokeLater(() -> handleSendSuccess(body, isStart, pendingLinesToAck));
+				}
+				else if (isStart)
+				{
+					clientThread.invokeLater(() -> handleStartFailure(
+							"Could not connect to Runelogs (HTTP " + statusCode + ").\n\n"
+									+ "Check your access key and try again."));
+				}
+				else if ("stop".equals(command) && (statusCode == 404 || statusCode == 409))
+				{
+					// Session already ended server-side.
+				}
+				else if (("batch".equals(command) || "heartbeat".equals(command))
+						&& (statusCode == 404 || statusCode == 409))
+				{
+					clientThread.invokeLater(this::handleSessionInactive);
+				}
+				else if ("batch".equals(command))
+				{
+					clientThread.invokeLater(this::handleBatchFailure);
+				}
+				else if ("heartbeat".equals(command))
+				{
+					clientThread.invokeLater(this::handleBatchFailure);
+				}
 			}
 		}
-		catch (Exception e)
+		catch (IOException e)
 		{
 			if (isStart)
 			{
