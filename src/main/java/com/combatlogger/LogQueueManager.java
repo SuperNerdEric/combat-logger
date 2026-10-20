@@ -13,6 +13,8 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.party.PartyMember;
 import net.runelite.client.party.PartyService;
 
+import lombok.extern.slf4j.Slf4j;
+
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import java.io.BufferedWriter;
@@ -29,6 +31,7 @@ import java.util.concurrent.Executors;
 import static com.combatlogger.CombatLoggerPlugin.LOG_FILE;
 import static com.combatlogger.CombatLoggerPlugin.getCurrentTimestamp;
 
+@Slf4j
 @Singleton
 public class LogQueueManager
 {
@@ -175,7 +178,7 @@ public class LogQueueManager
 		}
 		catch (IOException e)
 		{
-			e.printStackTrace();
+			log.warn("Failed to write combat log", e);
 			closeWriter();
 		}
 	}
@@ -193,7 +196,7 @@ public class LogQueueManager
 		}
 		catch (IOException e)
 		{
-			e.printStackTrace();
+			log.warn("Failed to close combat log", e);
 		}
 		finally
 		{

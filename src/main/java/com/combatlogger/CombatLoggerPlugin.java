@@ -28,6 +28,7 @@ import com.combatlogger.util.NpcAttackAnimationIds;
 import com.combatlogger.util.SpellIds;
 import com.google.inject.Provides;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Menu;
 import net.runelite.api.Point;
 import net.runelite.api.*;
@@ -93,6 +94,7 @@ import static com.combatlogger.util.OverheadToPrayer.HEADICON_TO_PRAYER_VARBIT;
 		tags = {"damage", "dps", "pvm", "tob", "theatre of blood", "toa", "tombs of amascut", "meter", "counter", "tick"}
 )
 
+@Slf4j
 public class CombatLoggerPlugin extends Plugin
 {
 	public static final String DIRECTORY_NAME = "combat_log";
@@ -1894,7 +1896,7 @@ public class CombatLoggerPlugin extends Plugin
 		}
 		catch (IOException e)
 		{
-			e.printStackTrace();
+			log.warn("Failed to create combat log file", e);
 		}
 	}
 
