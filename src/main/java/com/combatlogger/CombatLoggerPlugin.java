@@ -506,8 +506,8 @@ public class CombatLoggerPlugin extends Plugin
 
 		if (AnimationIds.isPolledAttackAnimation(animationId) && player.getAnimationFrame() == 0 && player.getInteracting() != null)
 		{
-			// Blowpipes and Eye of Ayak restart their attack animation (at frame 0) without sending an
-			// AnimationChanged event, so we poll every game tick for these weapons at animation frame 0.
+			// Blowpipes, Eye of Ayak, and Zorya's tome restart their attack animation (at frame 0)
+			// without sending an AnimationChanged event, so we poll every game tick at frame 0.
 			logAttackAnimation(animationId, player);
 		}
 	}

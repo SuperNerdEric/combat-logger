@@ -38,6 +38,22 @@ public class GameObjectIdsToTrack
 			// Maggot King poison splats
 			33423, // Poisonous bile
 			33424, // Sticky bile
-			33425 // Carrion
+			33425, // Carrion
+
+			// The Fractured Archive mechanics
+			62544, // Bork ragged tile
+			62609, // Dreadnoth damage tile
+			62684, // Ocellus quadrant wall inactive
+			62685, // Ocellus quadrant wall active
+			62701, // Ocellus void bomb
+			62702, // Ocellus void debris
+			62703, // Ocellus cracks
+			62704, // Ocellus cracks
+			62705, // Ocellus cracks
+			62706, // The Blade
+			62710, // Xarth rubble
+			62711, // Xarth rubble
+			62712, // Xarth rubble
+			62713 // Xarth arena fire
 	));
 }

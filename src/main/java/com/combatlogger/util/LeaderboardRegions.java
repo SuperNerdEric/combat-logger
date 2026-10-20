@@ -45,6 +45,13 @@ public final class LeaderboardRegions
 
 		putAll(regions, "Maggot King", 11645);
 
+		// The Fractured Archive. 16471 is Archive Guardian. The rest of the block
+		// is the choice rooms and the path north. 16470 is the bank outside.
+		putAll(regions, "The Fractured Archive",
+				16214, 16215, 16216, 16217, 16218,
+				16471, 16472, 16473, 16474,
+				16726, 16727, 16728, 16729, 16730);
+
 		REGION_TO_CONTENT = Collections.unmodifiableMap(regions);
 	}
 

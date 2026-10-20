@@ -281,7 +281,25 @@ public class BossIds
 			SLAYER_KRAKEN_BOSS_WHIRLPOOL,
 			DOM_BOSS, // Doom of Mokhaiotl
 			15742, // MAGGOT_KING
-			YAMA
+			YAMA,
+			// The Fractured Archive
+			16640, // TFA_BORK
+			16641, // TFA_SMORK
+			16643, // TFA_DAGONHAI_LEADER
+			16644, // TFA_DAGONHAI_LEADER_UNSHIELDED
+			16652, // TFA_EZEKIEL
+			16657, // TFA_GUARDIAN_START
+			16658, // TFA_GUARDIAN_DEAD
+			16659, // TFA_GUARDIAN
+			16660, // TFA_GUARDIAN_UNSHIELDED
+			16665, // TFA_JELLY_BOSS
+			16667, // TFA_MOIA
+			16673, // TFA_OCELLUS_INTRO
+			16674, // TFA_OCELLUS_P1
+			16675, // TFA_OCELLUS_P2
+			16677, // TFA_OCELLUS_P3
+			16682, // TFA_OCELLUS_P3_ANIM
+			16684 // TFA_XARTH
 	));
 	public static final Map<String, List<String>> BOSS_TO_MINIONS;
 	public static final Map<String, String> MINION_TO_BOSS;
@@ -289,7 +307,13 @@ public class BossIds
 	static
 	{
 		BOSS_TO_MINIONS = Map.of(
-				"Nylocas Vasilias", List.of("Nylocas Hagios", "Nylocas Ischyros", "Nylocas Toxobolos")
+				"Nylocas Vasilias", List.of("Nylocas Hagios", "Nylocas Ischyros", "Nylocas Toxobolos"),
+				"Archive Guardian", List.of("Inert Guardian"),
+				"Bork", List.of("The Smorks"),
+				"Dagon'hai Trio", List.of("Dagon'hai Monk", "Dagon'hai Elder"),
+				"Moia", List.of("Undead binder"),
+				"Ezekiel", List.of("Animated Sword"),
+				"Ocellus", List.of("Void Rift", "Void Siphon", "Void Augmenter", "The Blade")
 		);
 
 		MINION_TO_BOSS = BOSS_TO_MINIONS.entrySet().stream()

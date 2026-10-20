@@ -8,6 +8,24 @@ import java.util.List;
 
 public class AnimationIds
 {
+	// The Fractured Archive player attacks. Values match RuneLite AnimationID
+	// (TFA_HUMAN_*). Inlined so this builds before the client jar includes them.
+	private static final int TFA_HUMAN_RONDACHE_SPECIAL = 15108;
+	private static final int TFA_HUMAN_ASCENSION_CROSSBOW_FIRE_LEFT = 15113;
+	private static final int TFA_HUMAN_ASCENSION_CROSSBOW_FIRE_LEFT_PVN = 15114;
+	private static final int TFA_HUMAN_ASCENSION_CROSSBOW_FIRE_RIGHT = 15115;
+	private static final int TFA_HUMAN_ASCENSION_CROSSBOW_FIRE_RIGHT_PVN = 15116;
+	private static final int TFA_HUMAN_OBLIGATOR_ATTACK = 15122;
+	private static final int TFA_HUMAN_OBLIGATOR_MULTIHIT = 15123;
+	private static final int TFA_HUMAN_OBLIGATOR_ATTACK_FEMALE = 15130;
+	private static final int TFA_HUMAN_OBLIGATOR_MULTIHIT_FEMALE = 15131;
+	private static final int TFA_HUMAN_OBLIGATOR_DEF = 15133;
+	private static final int TFA_HUMAN_OBLIGATOR_DEF_FEMALE = 15134;
+	private static final int TFA_HUMAN_ZORYA_TOME_ATTACK = 15139;
+	private static final int TFA_HUMAN_ZORYA_TOME_SPECIAL_ATTACK = 15140;
+	private static final int TFA_HUMAN_ZORYA_TOME_ATTACK_FEMALE = 15146;
+	private static final int TFA_HUMAN_ZORYA_TOME_SPECIAL_ATTACK_FEMALE = 15147;
+
 	/**
 	 * Attack animations that restart at frame 0 without firing AnimationChanged each time.
 	 * Polled every game tick in {@code CombatLoggerPlugin#checkPolledAttackAnimations}.
@@ -20,7 +38,9 @@ public class AnimationIds
 			AnimationID.ROSEWOOD_BLOWPIPE_ATTACK, // Rosewood blowpipe
 			AnimationID.ROSEWOOD_BLOWPIPE_SPECIAL_ATTACK, // Rosewood blowpipe spec
 			AnimationID.HUMAN_EYE_OF_AYAK_NORMAL, // Eye of Ayak auto
-			AnimationID.HUMAN_EYE_OF_AYAK_SPECIAL // Eye of Ayak spec
+			AnimationID.HUMAN_EYE_OF_AYAK_SPECIAL, // Eye of Ayak spec
+			TFA_HUMAN_ZORYA_TOME_ATTACK, // Zorya's tome auto
+			TFA_HUMAN_ZORYA_TOME_ATTACK_FEMALE // Zorya's tome auto
 	);
 
 	public static final List<Integer> MELEE_IDS = Arrays.asList(
@@ -125,7 +145,14 @@ public class AnimationIds
 			AnimationID.HUMAN_HALLOWFELL_CHOP, // Hallowfell
 			AnimationID.HUMAN_HALLOWFELL_SLASH, // Hallowfell
 			AnimationID.HUMAN_HALLOWFELL_SMASH, // Hallowfell
-			AnimationID.HUMAN_HALLOWFELL_BLOCK // Hallowfell
+			AnimationID.HUMAN_HALLOWFELL_BLOCK, // Hallowfell
+			TFA_HUMAN_OBLIGATOR_ATTACK, // Obligator smash
+			TFA_HUMAN_OBLIGATOR_ATTACK_FEMALE, // Obligator smash
+			TFA_HUMAN_OBLIGATOR_MULTIHIT, // Obligator thrust
+			TFA_HUMAN_OBLIGATOR_MULTIHIT_FEMALE, // Obligator thrust
+			TFA_HUMAN_OBLIGATOR_DEF, // Obligator block
+			TFA_HUMAN_OBLIGATOR_DEF_FEMALE, // Obligator block
+			TFA_HUMAN_RONDACHE_SPECIAL // Rondache shield bash
 	);
 
 	public static final List<Integer> RANGED_IDS = Arrays.asList(
@@ -156,7 +183,11 @@ public class AnimationIds
 			AnimationID.HUMAN_GLAIVE_RALOS01_UNCHARGED_SPECIAL, // Tonalztics of ralos (Uncharged)
 			AnimationID.HUMAN_GLAIVE_RALOS01_UNCHARGED_THROW, // Tonalztics of ralos
 			AnimationID.HUMAN_GLAIVE_RALOS01_CHARGED_THROW, // Tonalztics of ralos
-			AnimationID.HUMAN_GLAIVE_RALOS01_CHARGED_SPECIAL // Tonalztics of ralos spec
+			AnimationID.HUMAN_GLAIVE_RALOS01_CHARGED_SPECIAL, // Tonalztics of ralos spec
+			TFA_HUMAN_ASCENSION_CROSSBOW_FIRE_LEFT, // Ascension crossbows
+			TFA_HUMAN_ASCENSION_CROSSBOW_FIRE_LEFT_PVN, // Ascension crossbows
+			TFA_HUMAN_ASCENSION_CROSSBOW_FIRE_RIGHT, // Ascension crossbows
+			TFA_HUMAN_ASCENSION_CROSSBOW_FIRE_RIGHT_PVN // Ascension crossbows
 	);
 
 	public static final List<Integer> MAGE_IDS = Arrays.asList(
@@ -182,7 +213,11 @@ public class AnimationIds
 			AnimationID.HUMAN_SPELLCAST_DEMONBANE, // Arceuus demonbane
 			AnimationID.HUMAN_SPECIAL_ACCURSED, // Accursed sceptre spec
 			AnimationID.HUMAN_EYE_OF_AYAK_NORMAL, // Eye of Ayak auto
-			AnimationID.HUMAN_EYE_OF_AYAK_SPECIAL // Eye of Ayak spec
+			AnimationID.HUMAN_EYE_OF_AYAK_SPECIAL, // Eye of Ayak spec
+			TFA_HUMAN_ZORYA_TOME_ATTACK, // Zorya's tome auto
+			TFA_HUMAN_ZORYA_TOME_ATTACK_FEMALE, // Zorya's tome auto
+			TFA_HUMAN_ZORYA_TOME_SPECIAL_ATTACK, // Zorya's tome spec
+			TFA_HUMAN_ZORYA_TOME_SPECIAL_ATTACK_FEMALE // Zorya's tome spec
 	);
 
 	public static boolean isPolledAttackAnimation(int animationId)
@@ -213,6 +248,10 @@ public class AnimationIds
 			case AnimationID.ROSEWOOD_BLOWPIPE_ATTACK: // Rosewood blowpipe
 			case AnimationID.ROSEWOOD_BLOWPIPE_SPECIAL_ATTACK: // Rosewood blowpipe spec
 			case AnimationID.II_HUMAN_DART_THROW_PVN: // Dart throw
+			case TFA_HUMAN_ASCENSION_CROSSBOW_FIRE_LEFT: // Ascension crossbows rapid
+			case TFA_HUMAN_ASCENSION_CROSSBOW_FIRE_LEFT_PVN:
+			case TFA_HUMAN_ASCENSION_CROSSBOW_FIRE_RIGHT:
+			case TFA_HUMAN_ASCENSION_CROSSBOW_FIRE_RIGHT_PVN:
 				ticks = 2;
 				break;
 
@@ -240,6 +279,12 @@ public class AnimationIds
 			case AnimationID.HUMAN_ATLATL_ATTACK_RANGED_01: // Eclipse atlatl
 			case AnimationID.HUMAN_SPECIAL_ATLATL_01: // Eclipse atlatl spec
 			case AnimationID.HUMAN_EYE_OF_AYAK_NORMAL: // Eye of Ayak auto
+			case TFA_HUMAN_OBLIGATOR_ATTACK: // Obligator smash
+			case TFA_HUMAN_OBLIGATOR_ATTACK_FEMALE:
+			case TFA_HUMAN_ZORYA_TOME_ATTACK: // Zorya's tome auto and spec
+			case TFA_HUMAN_ZORYA_TOME_ATTACK_FEMALE:
+			case TFA_HUMAN_ZORYA_TOME_SPECIAL_ATTACK:
+			case TFA_HUMAN_ZORYA_TOME_SPECIAL_ATTACK_FEMALE:
 				ticks = 3;
 				break;
 
@@ -423,6 +468,10 @@ public class AnimationIds
 			case AnimationID.HUMAN_SPELLCAST_GRASP: // Arceuus grasp
 			case AnimationID.HUMAN_SPELLCAST_DEMONBANE: // Arceuus demonbane
 			case AnimationID.HUMAN_EYE_OF_AYAK_SPECIAL: // Eye of Ayak spec
+			case TFA_HUMAN_OBLIGATOR_MULTIHIT: // Obligator thrust
+			case TFA_HUMAN_OBLIGATOR_MULTIHIT_FEMALE:
+			case TFA_HUMAN_OBLIGATOR_DEF: // Obligator block
+			case TFA_HUMAN_OBLIGATOR_DEF_FEMALE:
 				ticks = 5;
 				break;
 
