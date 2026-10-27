@@ -217,6 +217,10 @@ public class LogQueueManager
 		}
 
 		PartyMember eventMember = party.getMemberById(event.getMemberId());
+		if (!CombatLoggerPlugin.isResolvedPartyName(eventMember))
+		{
+			return;
+		}
 		String newHitsplatName = HitSplatUtil.replaceMeWithNewOther(event.getHitsplatName());
 
 		// Find a matching damage log in the queue and then add the source of the damage and rename the hitsplat appropriately

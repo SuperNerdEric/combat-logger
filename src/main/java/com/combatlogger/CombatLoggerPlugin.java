@@ -1379,6 +1379,18 @@ public class CombatLoggerPlugin extends Plugin
 		});
 	}
 
+	// Party display names stay "<unknown>" until that member's name syncs.
+	// Logging under that placeholder invents a player who is not in the raid.
+	static boolean isResolvedPartyName(PartyMember member)
+	{
+		if (member == null)
+		{
+			return false;
+		}
+		String name = member.getDisplayName();
+		return name != null && !name.isBlank() && !"<unknown>".equals(name);
+	}
+
 	@Subscribe
 	public void onEquipmentMessage(EquipmentMessage event)
 	{
@@ -1389,8 +1401,13 @@ public class CombatLoggerPlugin extends Plugin
 			return;
 		}
 
-		markMemberHasPlugin(event.getMemberId());
 		PartyMember eventMember = party.getMemberById(event.getMemberId());
+		if (!isResolvedPartyName(eventMember))
+		{
+			return;
+		}
+
+		markMemberHasPlugin(event.getMemberId());
 
 		logQueueManager.queue(String.format("%s\tEQUIPMENT\t%s", eventMember.getDisplayName(), event.getItemIds()));
 	}
@@ -1405,8 +1422,13 @@ public class CombatLoggerPlugin extends Plugin
 			return;
 		}
 
-		markMemberHasPlugin(event.getMemberId());
 		PartyMember eventMember = party.getMemberById(event.getMemberId());
+		if (!isResolvedPartyName(eventMember))
+		{
+			return;
+		}
+
+		markMemberHasPlugin(event.getMemberId());
 
 		logQueueManager.queue(String.format("%s\tINVENTORY\t%s", eventMember.getDisplayName(), formatItems(event.getInventory())));
 		logQueueManager.queue(String.format("%s\tRUNE_POUCH\t%s", eventMember.getDisplayName(), formatItems(event.getRunePouch())));
@@ -1422,8 +1444,13 @@ public class CombatLoggerPlugin extends Plugin
 			return;
 		}
 
-		markMemberHasPlugin(event.getMemberId());
 		PartyMember eventMember = party.getMemberById(event.getMemberId());
+		if (!isResolvedPartyName(eventMember))
+		{
+			return;
+		}
+
+		markMemberHasPlugin(event.getMemberId());
 
 		logQueueManager.queue(String.format("%s\tSPELLBOOK\t%d", eventMember.getDisplayName(), event.getSpellbook()));
 	}
@@ -1438,8 +1465,13 @@ public class CombatLoggerPlugin extends Plugin
 			return;
 		}
 
-		markMemberHasPlugin(event.getMemberId());
 		PartyMember eventMember = party.getMemberById(event.getMemberId());
+		if (!isResolvedPartyName(eventMember))
+		{
+			return;
+		}
+
+		markMemberHasPlugin(event.getMemberId());
 
 		logQueueManager.queue(String.format("%s\tSPECIAL_ATTACK\t%d", eventMember.getDisplayName(), event.getSpecialAttack()));
 	}
@@ -1454,8 +1486,13 @@ public class CombatLoggerPlugin extends Plugin
 			return;
 		}
 
-		markMemberHasPlugin(event.getMemberId());
 		PartyMember eventMember = party.getMemberById(event.getMemberId());
+		if (!isResolvedPartyName(eventMember))
+		{
+			return;
+		}
+
+		markMemberHasPlugin(event.getMemberId());
 
 		logQueueManager.queue(String.format("%s\tPRAYERS\t%s", eventMember.getDisplayName(), event.getPrayerIds()));
 	}
@@ -1470,8 +1507,13 @@ public class CombatLoggerPlugin extends Plugin
 			return;
 		}
 
-		markMemberHasPlugin(event.getMemberId());
 		PartyMember eventMember = party.getMemberById(event.getMemberId());
+		if (!isResolvedPartyName(eventMember))
+		{
+			return;
+		}
+
+		markMemberHasPlugin(event.getMemberId());
 
 		logQueueManager.queue(String.format("%s\tBASE_STATS\t%s", eventMember.getDisplayName(), event.getStats()));
 	}
@@ -1486,8 +1528,13 @@ public class CombatLoggerPlugin extends Plugin
 			return;
 		}
 
-		markMemberHasPlugin(event.getMemberId());
 		PartyMember eventMember = party.getMemberById(event.getMemberId());
+		if (!isResolvedPartyName(eventMember))
+		{
+			return;
+		}
+
+		markMemberHasPlugin(event.getMemberId());
 
 		logQueueManager.queue(String.format("%s\tBOOSTED_STATS\t%s", eventMember.getDisplayName(), event.getStats()));
 	}

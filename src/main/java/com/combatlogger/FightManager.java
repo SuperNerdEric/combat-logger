@@ -19,7 +19,7 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.party.PartyMember;
 import net.runelite.client.party.PartyService;
 import net.runelite.client.plugins.party.PartyPluginService;
-import net.runelite.client.plugins.party.data.PartyData;
+import net.runelite.client.plugins.party.data.PartyMemberData;
 import net.runelite.client.events.ConfigChanged;
 
 import javax.inject.Inject;
@@ -220,7 +220,7 @@ public class FightManager
 		PartyMember partyMember = partyService.getMemberByDisplayName(playerName);
 		if (partyMember != null)
 		{
-			PartyData partyData = partyPluginService.getPartyData(partyMember.getMemberId());
+			PartyMemberData partyData = partyPluginService.getPartyData(partyMember.getMemberId());
 			if (partyData != null && partyData.getColor() != null)
 			{
 				return partyData.getColor();
