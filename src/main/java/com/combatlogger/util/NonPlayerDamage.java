@@ -7,10 +7,10 @@ import java.util.Set;
 import static com.combatlogger.util.IdParser.parseId;
 
 /**
- * Hitsplats that are not real damage dealt by their source. They are still written to the log
- * but are kept out of the damage meter.
+ * Hitsplats that are credited to a player but were not dealt by one. They are still written to
+ * the log but are kept out of the damage meter.
  */
-public final class InvalidDamage
+public final class NonPlayerDamage
 {
 	private static final int OCELLUS_P2_NPC_ID = 16675;
 
@@ -21,11 +21,11 @@ public final class InvalidDamage
 			"DAMAGE_MAX_OTHER_CYAN"
 	));
 
-	private InvalidDamage()
+	private NonPlayerDamage()
 	{
 	}
 
-	public static boolean isInvalidDamage(String target, String hitsplatName, int damageAmount)
+	public static boolean isNonPlayerDamage(String target, String hitsplatName, int damageAmount)
 	{
 		return isOcellusPhaseSplat(target, hitsplatName, damageAmount);
 	}
