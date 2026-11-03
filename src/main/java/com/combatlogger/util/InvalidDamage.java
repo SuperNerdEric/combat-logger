@@ -8,13 +8,12 @@ import static com.combatlogger.util.IdParser.parseId;
 
 /**
  * Hitsplats that are not real damage dealt by their source. They are still written to the log
- * (Runelogs flags them on its side) but are kept out of the damage meter.
+ * but are kept out of the damage meter.
  */
 public final class InvalidDamage
 {
 	private static final int OCELLUS_P2_NPC_ID = 16675;
 
-	// Highest player hit seen on any Ocellus form across 656 live fights
 	private static final int OCELLUS_MAX_PLAYER_HIT = 121;
 
 	private static final Set<String> OCELLUS_PHASE_SPLAT_HITSPLATS = new HashSet<>(Arrays.asList(
