@@ -37,6 +37,7 @@ import static com.combatlogger.util.BoatIds.BOAT_IDS;
 import static com.combatlogger.util.BossIds.*;
 import static com.combatlogger.util.HitSplatUtil.NON_DAMAGE_HITSPLATS;
 import static com.combatlogger.util.IdParser.parseId;
+import static com.combatlogger.util.InvalidDamage.isInvalidDamage;
 
 @Singleton
 public class FightManager
@@ -263,6 +264,12 @@ public class FightManager
 		if (BOAT_IDS.contains(parseId(damageLog.getTarget())))
 		{
 			// Exclude boats from damage meter - there's not even a clear way to tell whose boat is being damaged
+			return;
+		}
+
+		if (isInvalidDamage(damageLog.getTarget(), damageLog.getHitsplatName(), damageLog.getDamageAmount()))
+		{
+			// Still written to the log file, just not shown in the damage meter
 			return;
 		}
 
