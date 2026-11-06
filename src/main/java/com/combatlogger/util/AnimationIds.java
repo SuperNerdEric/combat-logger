@@ -19,8 +19,6 @@ public class AnimationIds
 	private static final int TFA_HUMAN_OBLIGATOR_MULTIHIT = 15123;
 	private static final int TFA_HUMAN_OBLIGATOR_ATTACK_FEMALE = 15130;
 	private static final int TFA_HUMAN_OBLIGATOR_MULTIHIT_FEMALE = 15131;
-	private static final int TFA_HUMAN_OBLIGATOR_DEF = 15133;
-	private static final int TFA_HUMAN_OBLIGATOR_DEF_FEMALE = 15134;
 	private static final int TFA_HUMAN_ZORYA_TOME_ATTACK = 15139;
 	private static final int TFA_HUMAN_ZORYA_TOME_SPECIAL_ATTACK = 15140;
 	private static final int TFA_HUMAN_ZORYA_TOME_ATTACK_FEMALE = 15146;
@@ -130,7 +128,6 @@ public class AnimationIds
 			AnimationID.HUMAN_ELDER_MAUL_ATTACK, // Maul
 			AnimationID.HUMAN_ELDER_MAUL_SPEC, // Elder maul spec
 			AnimationID.SLAYER_GRANITE_MAUL_ATTACK, // Gadderhammer, Granite maul
-			AnimationID.SLAYER_GRANITE_MAUL_DEFEND, // Granite maul block
 			AnimationID.SLAYER_GRANITE_MAUL_SPECIAL_ATTACK, // Granite maul spec
 			AnimationID.STAB_WOLBANEDAGGER, // Wolfbane stab
 			AnimationID.SHATTER, // Dragon mace spec
@@ -150,8 +147,6 @@ public class AnimationIds
 			TFA_HUMAN_OBLIGATOR_ATTACK_FEMALE, // Obligator smash
 			TFA_HUMAN_OBLIGATOR_MULTIHIT, // Obligator thrust
 			TFA_HUMAN_OBLIGATOR_MULTIHIT_FEMALE, // Obligator thrust
-			TFA_HUMAN_OBLIGATOR_DEF, // Obligator block
-			TFA_HUMAN_OBLIGATOR_DEF_FEMALE, // Obligator block
 			TFA_HUMAN_RONDACHE_SPECIAL // Rondache shield bash
 	);
 
@@ -219,6 +214,18 @@ public class AnimationIds
 			TFA_HUMAN_ZORYA_TOME_SPECIAL_ATTACK, // Zorya's tome spec
 			TFA_HUMAN_ZORYA_TOME_SPECIAL_ATTACK_FEMALE // Zorya's tome spec
 	);
+
+	/**
+	 * The player often isn't interacting with anything while attacking with the Obligator, whose
+	 * thrust can hit several targets.
+	 */
+	public static boolean isNoTargetAttackAnimation(int animationId)
+	{
+		return animationId == TFA_HUMAN_OBLIGATOR_ATTACK
+				|| animationId == TFA_HUMAN_OBLIGATOR_ATTACK_FEMALE
+				|| animationId == TFA_HUMAN_OBLIGATOR_MULTIHIT
+				|| animationId == TFA_HUMAN_OBLIGATOR_MULTIHIT_FEMALE;
+	}
 
 	public static boolean isPolledAttackAnimation(int animationId)
 	{
@@ -470,8 +477,6 @@ public class AnimationIds
 			case AnimationID.HUMAN_EYE_OF_AYAK_SPECIAL: // Eye of Ayak spec
 			case TFA_HUMAN_OBLIGATOR_MULTIHIT: // Obligator thrust
 			case TFA_HUMAN_OBLIGATOR_MULTIHIT_FEMALE:
-			case TFA_HUMAN_OBLIGATOR_DEF: // Obligator block
-			case TFA_HUMAN_OBLIGATOR_DEF_FEMALE:
 				ticks = 5;
 				break;
 
@@ -540,7 +545,6 @@ public class AnimationIds
 				}
 			case AnimationID.BARROW_DHAROK_SLASH: // Dharok's greataxe slash
 			case AnimationID.BARROW_DHAROK_CRUSH: // Dharok's greataxe crush
-			case AnimationID.SLAYER_GRANITE_MAUL_DEFEND: // Granite maul block
 			case AnimationID.SLAYER_GRANITE_MAUL_SPECIAL_ATTACK: // Granite maul spec
 			case AnimationID.DRAGON_TWO_HANDED_SWORD: // Dragon 2h spec
 			case AnimationID.FORESTRY_2H_AXE_ATTACK: // Felling axe

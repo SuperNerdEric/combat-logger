@@ -339,6 +339,7 @@ public class FightManager
 
 	public void addTicks(AttackAnimationLog attackAnimationLog)
 	{
+		boolean hasTarget = !attackAnimationLog.getTarget().isEmpty();
 		Fight currentFight = null;
 
 		if (!fights.isEmpty())
@@ -353,6 +354,11 @@ public class FightManager
 
 		if (currentFight == null && (fights.isEmpty() || fights.peekLast().isOver()))
 		{
+			if (!hasTarget)
+			{
+				// An attack with no target can't name a new fight
+				return;
+			}
 			if (!attackAnimationLog.getSource().equals(client.getLocalPlayer().getName())
 					&& !BOSS_IDS.contains(parseId(attackAnimationLog.getTarget()))
 					&& !MINION_TO_BOSS.containsKey(attackAnimationLog.getTargetName()))
@@ -379,7 +385,7 @@ public class FightManager
 		{
 			playerData = new Fight.PlayerData(attackAnimationLog.getSource());
 		}
-		playerData.addActivityTicks(attackAnimationLog.getTargetName(),
+		playerData.addActivityTicks(hasTarget ? attackAnimationLog.getTargetName() : currentFight.getFightName(),
 				AnimationIds.getTicks(attackAnimationLog.getAnimationId(), attackAnimationLog.getWeaponId()));
 		currentFight.getPlayerDataMap().put(attackAnimationLog.getSource(), playerData);
 	}

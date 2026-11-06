@@ -884,14 +884,21 @@ public class CombatLoggerPlugin extends Plugin
 			weaponId = player.getPlayerComposition().getEquipmentId(KitType.WEAPON);
 		}
 
+		Actor interacting = player.getInteracting();
+		String target = interacting != null ? getIdOrName(interacting) : "";
+		String targetName = interacting != null && interacting.getName() != null ? Text.removeTags(interacting.getName()) : "";
+		String message = target.isEmpty()
+				? String.format("%s attack animation %d", player.getName(), animationId)
+				: String.format("%s attack animation %d\t%s", player.getName(), animationId, target);
+
 		logQueueManager.queue(
 				new AttackAnimationLog(
 						client.getTickCount(),
 						getCurrentTimestamp(),
-						String.format("%s attack animation %d\t%s", player.getName(), animationId, getIdOrName(player.getInteracting())),
+						message,
 						player.getName(),
-						getIdOrName(player.getInteracting()),
-						Text.removeTags(player.getInteracting().getName()),
+						target,
+						targetName,
 						animationId,
 						weaponId
 				)
@@ -1016,6 +1023,10 @@ public class CombatLoggerPlugin extends Plugin
 	{
 		if (player.getInteracting() == null)
 		{
+			if (AnimationIds.isNoTargetAttackAnimation(animationId))
+			{
+				logAttackAnimation(animationId, player);
+			}
 			// It's possible we see a player interacting, but their interacting target is outside our visibility range
 			// Just not going to count those for now
 			return;
