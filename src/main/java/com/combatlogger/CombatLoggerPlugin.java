@@ -4,6 +4,7 @@ import com.combatlogger.encounters.ColosseumHelper;
 import com.combatlogger.encounters.CoxHelper;
 import com.combatlogger.encounters.DoomHelper;
 import com.combatlogger.encounters.ToaHelper;
+import com.combatlogger.encounters.TfaHelper;
 import com.combatlogger.encounters.TobHelper;
 import com.combatlogger.messages.BaseCombatStatsMessage;
 import com.combatlogger.messages.BoostedCombatStatsMessage;
@@ -184,6 +185,9 @@ public class CombatLoggerPlugin extends Plugin
 	private DoomHelper doomHelper;
 
 	@Inject
+	private TfaHelper tfaHelper;
+
+	@Inject
 	private ClientToolbar clientToolbar;
 
 	@Inject
@@ -221,6 +225,7 @@ public class CombatLoggerPlugin extends Plugin
 		eventBus.register(coxHelper);
 		eventBus.register(tobHelper);
 		eventBus.register(doomHelper);
+		eventBus.register(tfaHelper);
 
 		navButton = NavigationButton.builder()
 				.tooltip("Combat Logger")
@@ -288,6 +293,7 @@ public class CombatLoggerPlugin extends Plugin
 		eventBus.unregister(coxHelper);
 		eventBus.unregister(tobHelper);
 		eventBus.unregister(doomHelper);
+		eventBus.unregister(tfaHelper);
 		tobHelper.reset();
 		doomHelper.reset();
 		fightManager.shutDown();

@@ -1,6 +1,7 @@
 package com.combatlogger.encounters;
 
 import com.combatlogger.LogQueueManager;
+import com.combatlogger.util.RaidPartyTracker;
 import com.combatlogger.util.RaidWipeUtil;
 import net.runelite.api.Actor;
 import net.runelite.api.Client;
@@ -18,6 +19,7 @@ import net.runelite.api.events.VarbitChanged;
 import net.runelite.api.gameval.AnimationID;
 import net.runelite.api.gameval.NpcID;
 import net.runelite.api.gameval.SpotanimID;
+import net.runelite.api.gameval.VarClientID;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.util.Text;
@@ -188,8 +190,17 @@ public class TobHelper
 			VarbitID.TOB_CLIENT_P4
 	);
 
+	private static final List<Integer> TOB_NAME_VARCS = Arrays.asList(
+			VarClientID.TOB_CLIENT_NAME0,
+			VarClientID.TOB_CLIENT_NAME1,
+			VarClientID.TOB_CLIENT_NAME2,
+			VarClientID.TOB_CLIENT_NAME3,
+			VarClientID.TOB_CLIENT_NAME4
+	);
+
 	private final Client client;
 	private final LogQueueManager logQueueManager;
+	private final RaidPartyTracker partyTracker = new RaidPartyTracker("TOB_PARTY", TOB_ORB_VARBITS, TOB_NAME_VARCS);
 
 	/** Last logged boss health varbit value (0-1000), to only log on change. */
 	private int lastWaveProgressValue = -1;
@@ -430,6 +441,14 @@ public class TobHelper
 	@Subscribe
 	public void onGameTick(GameTick event)
 	{
+		// Party slots start at 1, so 0 means this client isn't one of the orbs on the HUD.
+		boolean inParty = client.getVarbitValue(VarbitID.TOB_CLIENT_PARTYSLOT) != 0;
+		partyTracker.update(
+				client,
+				logQueueManager,
+				inParty ? RaidPartyTracker.PLAYING : RaidPartyTracker.SPECTATING_OUTSIDE_PARTY
+		);
+
 		int tick = client.getTickCount();
 
 		if (soteDeathBallSpawnTick != -1 && tick >= soteDeathBallSpawnTick + 20)
